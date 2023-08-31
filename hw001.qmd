@@ -1,0 +1,11 @@
+---
+title: "Homework 01"
+author: "Andrew Joyce"
+format: html
+editor: visual
+embed-resources: true
+---
+
+## Homework 
+
+This is my first homework assignment.
