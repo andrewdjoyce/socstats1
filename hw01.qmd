@@ -1,0 +1,170 @@
+---
+title: "Homework 01- Sept 04"
+author: "Andrew Joyce"
+format: html
+editor: visual
+embed-resources: true
+---
+
+## Exercises
+
+### 1.1
+
+`typeof(mtcars)` describes the storage mode (also called type) of the object mtcars- in this case, a list.\
+`class(mtcars)` describes the class of object that mtcars is- in this case, a dataframe.
+
+-   `nrow(mtcars)` describes the number of rows in the dataframe- there are 32.
+-   `ncol(mtcars)` describes the number of columns in the dataframe- there are 11.
+-   `length(mtcars)` describes how long the data frame is- in this case, it is identical to the number of columns, 11.
+-   `dim(mtcars)` describes the dimensions of the data frame. The output is "32 11" which means the dimensions of this data frame are 32 rows by 11 columns (32:11).
+-   `rownames(mtcars)` describes each of the names of the rows in the data frame. These include "Maxda RX4," "Mazda RX4 Wag," "Datsun 710," "Hornet 4 Drive." Each row is the name of a car, an observation in the data frame.
+-   `colnames(mtcars)` describes the number of columns in the data frame. These include "mpg," "cyl," "disp," "hp," "drat," and "wt." These are the variables measured for each car in the data set- each car's miles per gallon, number of cylinders, displacement, horsepower, etc.
+
+### 1.2
+
+When I ran the code `TRUE <- 123`, I received the following error message: "Error in TRUE \<- 123 : invalid (do_set) left-hand side to assignment." This error occurs because I already assigned the value 123 to the logical value T. Logicals can be abbreviated, so trying to assign a value to TRUE causes an error because a value had already been assigned to T.
+
+### 1.3
+
+-   `c(1, FALSE)` will concatenate into doubles, output: 1 0
+-   `c("a", 1)` will concatenate into characters, output: "a" "1"
+-   `c(TRUE, 1L)` will concatenate into integers, output: 1 1
+    -   Each are 1:2, 1 row and 2 columns.
+
+### 1.4
+
+`as.integer(FALSE)` gets coerced to a value of 0. `as.integer(TRUE)` gets coerced to a value of 1.
+
+### 1.5
+
+`sum(x)` yields a value of 35 `TRUE` values. `mean(x)` yields a value of 0.4666667, which means 46.67% of the total values are `TRUE`. (This makes sense, as 35/75 = 0.4666667).
+
+### 1.6
+
+The difference between `mtcars["mpg"]` and `mtcars[["mpg"]]` is that the first command shows the name of each row (in this case, the car model) and the mpg for each car, while the second command just shows a list of all the mpg values. A double bracket `[[` extracts the data from the selected column, while a single bracket `[` creates a subset of the original data frame, including the name of each row and the requested column(s).
+
+Of the following commands:
+
+```         
+identical(mtcars["mpg"], mtcars$mpg)
+identical(mtcars[["mpg"]], mtcars$mpg)
+```
+
+Only the second line is `TRUE`. The double bracket `[[` selects just the mpg column, which is what occurs with the `mtcars$mpg` command. The single bracket `[` also includes the row names, which is not identical to the `mtcars$mpg` command.
+
+### 1.7
+
+-   The 17th value of letters is "q."
+-   Even numbers from 2 to 26: "b" "d" "f" "h" "j" "l" "n" "p" "r" "t" "v" "x" "z"
+-   numbers 8-12: "h" "i" "j" "k" "l"
+
+If you use `[[` instead of `[`, you will create an error, since there is an attempt to select more than one element in a vector.
+
+### 1.8
+
+To change the 18th value of letters to a missing value, enter: `letters[18] <- NA`
+
+I verified that the 18th value was missing using the function `is.na(letters)`. This creates a new vector with output "FALSE" or "TRUE" if the value is missing. Here, the 18th value is "TRUE," which means it is now missing.
+
+### 1.9
+
+`mtcars[mtcars$cyl == 4, ]` displays all observations in the mtcars data frame with 4 cylinders. There are 11 cars in this data frame with 4 cylinders.
+
+```         
+                mpg cyl  disp  hp drat    wt  qsec vs am gear carb
+Datsun 710     22.8   4 108.0  93 3.85 2.320 18.61  1  1    4    1
+Merc 240D      24.4   4 146.7  62 3.69 3.190 20.00  1  0    4    2
+Merc 230       22.8   4 140.8  95 3.92 3.150 22.90  1  0    4    2
+Fiat 128       32.4   4  78.7  66 4.08 2.200 19.47  1  1    4    1
+Honda Civic    30.4   4  75.7  52 4.93 1.615 18.52  1  1    4    2
+Toyota Corolla 33.9   4  71.1  65 4.22 1.835 19.90  1  1    4    1
+Toyota Corona  21.5   4 120.1  97 3.70 2.465 20.01  1  0    3    1
+Fiat X1-9      27.3   4  79.0  66 4.08 1.935 18.90  1  1    4    1
+Porsche 914-2  26.0   4 120.3  91 4.43 2.140 16.70  0  1    5    2
+Lotus Europa   30.4   4  95.1 113 3.77 1.513 16.90  1  1    5    2
+Volvo 142E     21.4   4 121.0 109 4.11 2.780 18.60  1  1    4    2
+```
+
+`mtcars[mtcars$mpg > 23, ]` displays all observations in the mtcars data frame with an MPG greater than 23 MPG. There are 7 cars that meet this requirement.
+
+```         
+                mpg cyl  disp  hp drat    wt  qsec vs am gear carb
+Merc 240D      24.4   4 146.7  62 3.69 3.190 20.00  1  0    4    2
+Fiat 128       32.4   4  78.7  66 4.08 2.200 19.47  1  1    4    1
+Honda Civic    30.4   4  75.7  52 4.93 1.615 18.52  1  1    4    2
+Toyota Corolla 33.9   4  71.1  65 4.22 1.835 19.90  1  1    4    1
+Fiat X1-9      27.3   4  79.0  66 4.08 1.935 18.90  1  1    4    1
+Porsche 914-2  26.0   4 120.3  91 4.43 2.140 16.70  0  1    5    2
+Lotus Europa   30.4   4  95.1 113 3.77 1.513 16.90  1  1    5    2
+```
+
+### 1.10 
+
+You are getting two different errors because of how R searches through the working space. When you type search(), R will list in the console the order in which the search is conducted. It will start with .GlobalEnv, then the package palmerpenguins, then a bunch of other packages.
+
+When you type table(year), R wants to use the function table & the object year. R searches through the global environment first, and then various other packages. But since "year" does not show up in the global environment, it is not found. You must subset the package "palmerpenguins" to find the year- and thus the command `table(penguins$year)` does what we intend it to do.
+
+### 1.11
+
+Extracting even numbered rows: `penguins |> slice(seq(from = 2, to = 334, by = 2))` to generate the following output:
+
+```         
+# A tibble: 167 × 8
+   species island    bill_length_mm bill_depth_mm flipper_length_mm body_mass_g sex     year
+   <fct>   <fct>              <dbl>         <dbl>             <int>       <int> <fct>  <int>
+ 1 Adelie  Torgersen           39.5          17.4               186        3800 female  2007
+ 2 Adelie  Torgersen           NA            NA                  NA          NA NA      2007
+ 3 Adelie  Torgersen           39.3          20.6               190        3650 male    2007
+ 4 Adelie  Torgersen           39.2          19.6               195        4675 male    2007
+ 5 Adelie  Torgersen           42            20.2               190        4250 NA      2007
+ 6 Adelie  Torgersen           37.8          17.3               180        3700 NA      2007
+ 7 Adelie  Torgersen           38.6          21.2               191        3800 male    2007
+ 8 Adelie  Torgersen           36.6          17.8               185        3700 female  2007
+ 9 Adelie  Torgersen           42.5          20.7               197        4500 male    2007
+10 Adelie  Torgersen           46            21.5               194        4200 male    2007
+# ℹ 157 more rows
+```
+
+Extracting every three rows: `penguins |> slice(seq(from = 3, to = 334, by = 3))` to generate the following output:
+
+```         
+# A tibble: 111 × 8
+   species island    bill_length_mm bill_depth_mm flipper_length_mm body_mass_g sex     year
+   <fct>   <fct>              <dbl>         <dbl>             <int>       <int> <fct>  <int>
+ 1 Adelie  Torgersen           40.3          18                 195        3250 female  2007
+ 2 Adelie  Torgersen           39.3          20.6               190        3650 male    2007
+ 3 Adelie  Torgersen           34.1          18.1               193        3475 NA      2007
+ 4 Adelie  Torgersen           37.8          17.3               180        3700 NA      2007
+ 5 Adelie  Torgersen           34.6          21.1               198        4400 male    2007
+ 6 Adelie  Torgersen           42.5          20.7               197        4500 male    2007
+ 7 Adelie  Biscoe              37.8          18.3               174        3400 female  2007
+ 8 Adelie  Biscoe              38.2          18.1               185        3950 male    2007
+ 9 Adelie  Biscoe              40.6          18.6               183        3550 male    2007
+10 Adelie  Biscoe              40.5          18.9               180        3950 male    2007
+# ℹ 101 more rows
+```
+
+### 1.12
+
+To filter penguins that are of the Gentoo species, on the Biscoe island, and whose body mass weighs between 5000 and 5500 g:
+
+`penguins |> filter(species == "Gentoo" & island == "Biscoe" & body_mass_g <= 5500 & body_mass_g >= 5000)`
+
+Output:
+
+```         
+# A tibble: 39 × 8
+   species island bill_length_mm bill_depth_mm flipper_length_mm body_mass_g sex     year
+   <fct>   <fct>           <dbl>         <dbl>             <int>       <int> <fct>  <int>
+ 1 Gentoo  Biscoe           47.6          14.5               215        5400 male    2007
+ 2 Gentoo  Biscoe           46.7          15.3               219        5200 male    2007
+ 3 Gentoo  Biscoe           46.8          15.4               215        5150 male    2007
+ 4 Gentoo  Biscoe           48.7          15.1               222        5350 male    2007
+ 5 Gentoo  Biscoe           45.1          14.5               215        5000 female  2007
+ 6 Gentoo  Biscoe           46.3          15.8               215        5050 male    2007
+ 7 Gentoo  Biscoe           42.9          13.1               215        5000 female  2007
+ 8 Gentoo  Biscoe           46.1          15.1               215        5100 male    2007
+ 9 Gentoo  Biscoe           47.3          15.3               222        5250 male    2007
+10 Gentoo  Biscoe           45.1          14.5               207        5050 female  2007
+# ℹ 29 more rows
+```
