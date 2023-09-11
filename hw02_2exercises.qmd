@@ -238,23 +238,24 @@ flights  |> distinct(origin, dest)
 
 # distinct carrier routes (origin, dest, carrier pairs)
 flights |> distinct(carrier, origin, dest)
-```
 
-If I compared raw average delays by carrier, I'd ignore airport effects.
-
-If I compared raw average delays by airport, I'd ignore carrier effects.
-
-So...list average delays per airport per carrier. I can first look at sort by average departure delay for each origin airport by carrier.
-
-```{r}
-## Find average departure delay for each flight by carrier.
-
-## Find average departure delay for each flight by airport.
-
+# average departrue delays by carrier per airport
+flights |> 
+  group_by(origin, carrier) |> 
+  summarize(avgdelay = mean(dep_delay, na.rm=TRUE)) |> 
+  arrange(desc(avgdelay))
   
-
-
 ```
+
+I'm not sure if the data can answer this question, since not every carrier takes every single route. You could look at average departure delays by carrier per airport, and that might give you a sense of what's going on, but I am not confident you could readily disentangle the effects. For example, it looks like carrier EV has consistently high delays from EWR, LGA, and JFK, so EV is an egregiously late carrier.
+
+I'm envisioning an equation:
+
+$$
+y_{i} = \beta_{0} + \beta_{1}X_{1} + \beta_{2}X_{2} + \epsilon
+$$
+
+Where $y_{i}$ is the predicted delay time, $\beta_{0}$ is a constant, $X_{1}$ is the variable for carrier, $X_{2}$ is the variable for airport. You could compare $\beta_{1}$ and $\beta_{2}$ to figure out which has a greater impact on delay time.
 
 2.  **Find the flights that are most delayed upon departure from each destination.**
 
@@ -267,23 +268,58 @@ flights |>
 
 3.  **How do delays vary over the course of the day. Illustrate your answer with a plot.**
 
-To visualize how delays vary over the course of a day, I created a scatterplot comparing hour and departure delay. This will show pairs
+To visualize how delays vary over the course of a day, I created a scatterplot comparing hour and average departure delay.
 
 ```{r}
-ggplot (
-  data = flights,
-  mapping = aes(x = hour, y = dep_delay )
-) +
-  geom_point() 
+flights |> 
+  group_by(hour) |> 
+  summarize(avg_delay = mean(dep_delay, na.rm = TRUE)) |> 
+  ggplot(aes(x=hour, y=avg_delay)) + geom_point()
 ```
 
 4.  **What happens if you supply a negative `n` to `slice_min()` and `slice_max()`?**
 
-5.  **Explain what [`count()`](https://dplyr.tidyverse.org/reference/count.html) does in terms of the dplyr verbs you just learned. What does the `sort`argument to [`count()`](https://dplyr.tidyverse.org/reference/count.html) do?**
+I will take from an example above where I was finding flights *most delayed* upon departure from each destination.
+
+```{r}
+# slice_max
+flights |> 
+  group_by(dest) |> 
+  slice_max(dep_delay, n = -1) |>
+  relocate(dest)
+
+# slice_min
+flights |> 
+  group_by(dest) |> 
+  slice_min(dep_delay, n = -1) |>
+  relocate(dest)
+```
+
+Essentially, a negative `n` does not affect anything.
+
+5.  **Explain what `count()` does in terms of the dplyr verbs you just learned. What does the `sort` argument to `count()` do?**
+
+The command `count()` will tally the number of times a particular combination appears.
+
+For example:
+
+```{r}
+flights |>
+  count(origin, dest, sort = TRUE)
+```
+
+The above code creates a tibble showing the number of times a unique origin-destination pair appears. There were 11,262 flights that flew from JFK to LAX in 2013. The `SORT` argument arranges them in descending order.
+
+```{r}
+flights |> 
+  count(origin, dest, carrier, sort = TRUE)
+```
+
+This adds an additional column carrier to find unique origin-destination-carrier combinations. These, then, are unique carrier routes. The most frequent one is from LGA to ORD, flown by AA, occurring 5,694 times.
 
 6.  **Suppose we have the following tiny data frame:**
 
-    ```         
+    ```{r}
     df <- tibble(
       x = 1:5,
       y = c("a", "b", "a", "a", "b"),
@@ -293,50 +329,63 @@ ggplot (
 
     a.  **Write down what you think the output will look like, then check if you were correct, and describe what `group_by()` does.**
 
-        ```         
-        df |>
-          group_by(y)
-        ```
+    ```{r}
+    df |>
+      group_by(y)
+    ```
+
+    The command `group_by(y)` sorts the data frame into groups based on the column `y`. Since `y` has 2 values ("a" or "b"), the tibble is grouped by `y` into two groups.
 
     b.  **Write down what you think the output will look like, then check if you were correct, and describe what `arrange()` does. Also comment on how it's different from the `group_by()` in part (a)?**
 
-        ```         
-        df |>
-          arrange(y)
-        ```
+    ```{r}
+    df |> arrange(y)
+    ```
+
+    The command `arrange()` will sort by the values of the column selected. While `group_by()` doesn't actually impact how the data appears, `arrange()` will change the order of the observations.
 
     c.  **Write down what you think the output will look like, then check if you were correct, and describe what the pipeline does.**
 
-        ```         
-        df |>
-          group_by(y) |>
-          summarize(mean_x = mean(x))
-        ```
+    ```{r}
+    df |>
+      group_by(y) |>
+      summarize(mean_x = mean(x))
+    ```
+
+    The output will take the mean value of the column `x` separately for the two groups of `y`. The pipeline instructs R to execute any subsequent operations split by the groups specified (in this case, the two groups of y).
 
     d.  **Write down what you think the output will look like, then check if you were correct, and describe what the pipeline does. Then, comment on what the message says.**
 
-        ```         
-        df |>
-          group_by(y, z) |>
-          summarize(mean_x = mean(x))
-        ```
+    ```{r}
+    df |>
+      group_by(y, z) |>
+      summarize(mean_x = mean(x))
+    ```
+
+    The output will group observations into groups based on both y and z. There should be three rows- one row for when y=a & z= K, one row for when y=a & z = L, and one row for when y=b & z=K. There is not a row for when y=B and z=L since that pair does not exist in the original data frame. Again, the pipeline says for subsequent operations, sort by y and z.
 
     e.  **Write down what you think the output will look like, then check if you were correct, and describe what the pipeline does. How is the output different from the one in part (d).**
 
-        ```         
-        df |>
-          group_by(y, z) |>
-          summarize(mean_x = mean(x), .groups = "drop")
-        ```
+    ```{r}
+    df |>
+      group_by(y, z) |>
+      summarize(mean_x = mean(x), .groups = "drop")
+    ```
+
+    The output Is identical, except it drops the error message that `summarize()` has grouped output by `'y'`.
 
     f.  **Write down what you think the outputs will look like, then check if you were correct, and describe what each pipeline does. How are the outputs of the two pipelines different?**
 
-        ```         
-        df |>
-          group_by(y, z) |>
-          summarize(mean_x = mean(x))
+```{r}
+df |>
+  group_by(y, z) |>
+  summarize(mean_x = mean(x))
 
-        df |>
-          group_by(y, z) |>
-          mutate(mean_x = mean(x))
-        ```
+df |>
+  group_by(y, z) |>
+  mutate(mean_x = mean(x))
+```
+
+`Summarize()` will create the mean for `x` for all the rows that form a unique combination of `(y, z)`. Since there are three unique combinations, there are three rows in the tibble.
+
+`Mutate()` will generate a new column with the value of the mean for each unique combination of `(y, z)`. While there are three unique combinations, they occur a total of five times, so there are five rows in the tibble (and a fourth column titled `mean_x`).
