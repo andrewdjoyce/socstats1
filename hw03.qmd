@@ -1,0 +1,333 @@
+---
+title: "Homework 3 Visualizations & Simulations"
+author: "Andrew Joyce"
+date: "2023-09-18"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+```
+
+## 3.1.1.1 Exercise
+
+```{r}
+# make the points larger squares, and slightly transparent
+ggplot(faithful) + 
+  geom_point(aes(x = eruptions, y = waiting), 
+             shape="square fill", size=3, color= "purple", 
+             fill="lightgreen", alpha=0.75)
+```
+
+## 3.1.1.2 Exercise
+
+```{r}
+# color the two visible clusters in the diagram with different colors
+ggplot(faithful) + 
+  geom_histogram(aes(x = eruptions, fill = eruptions < 3 ), 
+                 binwidth=0.10, color="white") 
+```
+
+## 3.1.1.3 Exercise
+
+```{r}
+# Add a line that separates the two point distributions.
+ggplot(faithful) + 
+  geom_point(aes(x = eruptions, y = waiting, fill = eruptions < 3), 
+                 shape="circle fill", size=3, color= "black", alpha=0.75) +
+  geom_abline(slope = -20, intercept = 125, linetype="twodash", color="black")
+```
+
+## 3.1.3.1 Excerise
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+data("mpg")  ## this dataset lives in the ggplot2 package
+```
+
+```{r}
+# Modify the code below to use a palette from Color Brewer.
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy, fill = class), shape="circle filled") + 
+  scale_color_brewer(palette = 'Set1')
+```
+
+## 3.1.3.2 Exercise
+
+```{r}
+# Modify the code below to create a bubble chart (scatterplot with size mapped to a continuous variable) showing cyl with size. 
+
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy, fill = class, size = cyl, alpha = 0.75), shape = "circle filled") + 
+  scale_color_brewer(palette = "Set1") +
+  scale_size_area(breaks = c(4, 5, 6, 8))
+```
+
+## 3.1.3.3 Exercise
+
+```{r}
+# Modify the code below so that color is no longer mapped to the discrete class variable, but to the continuous cty variable. What happens to the guide?
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy, color = cty, size = cty))
+```
+
+After mapping the continuous variable `cty` onto color, we see a gradient in the legend, where darker values mean lower values of `cty`. Gradients are cool because they show how color can be continuous- so we have a continuous color mapping onto a continuous variable.
+
+```{r}
+# What happens when multiple aesthetics are mapped to the same variable and uses the guide type?
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy, color = cty, size = cty)) +
+  guides(color = "legend")
+```
+
+After mapping two aesthetics (color and size) to the same variable (cty), the legends combine. Gradient of blue & size of circle are mapped onto values of cty.
+
+## 3.1.4.1 Exercise
+
+```{r}
+# Experiment with the different possible settings for scales in the plot below:
+
+# original; default is scales = "fixed"
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy)) + 
+  facet_wrap(~ drv)
+
+# scales = "free", which adjusts both x and y axes to the data
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy)) + 
+  facet_wrap(~ drv, scales = "free")
+
+# scales = "free_x", which restricts the y axis and lets x axes vary
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy)) + 
+  facet_wrap(~ drv, scales = "free_x")
+
+# scales = "free_y", which restricts the x axis and lets the y axes vary
+ggplot(mpg) + 
+  geom_point(aes(x = displ, y = hwy)) + 
+  facet_wrap(~ drv, scales = "free_y")
+```
+
+## 3.1.5.1 Exercise
+
+```{r}
+# original plot 
+mpg |> 
+  ggplot(aes(y = class, fill = drv)) + 
+  geom_bar() + 
+  facet_wrap(~year) + 
+  labs(
+    title = "Number of car models per class",
+    caption = "source: http://fueleconomy.gov",
+    x = 'Number of cars',
+    y = NULL
+  )
+
+# make it as ugly as possible using the theme function
+mpg |> 
+  ggplot(aes(y = class, fill = drv)) + 
+  geom_bar() + 
+  facet_wrap(~year) + 
+  labs(
+    title = "Number of car models per class",
+    caption = "source: http://fueleconomy.gov",
+    x = 'Number of cars',
+    y = NULL
+  ) +
+  theme (
+    text = element_text('Papyrus'),
+    strip.text = element_text(face = 'italic', hjust = 0.675),
+    plot.caption = element_text(face = 'bold', hjust = 0.25),
+    panel.grid.major = element_line('purple', linewidth = 0.5),
+    panel.grid.minor = element_line('darkgreen', linewidth = 0.75),
+    panel.grid.major.y = element_line("gold", linewidth = 0.5),
+    panel.background = element_rect(fill = "lightgreen"),
+    panel.ontop = FALSE
+  )
+
+
+```
+
+## 3.2.1.1 Exercise
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+url <- "https://raw.githubusercontent.com/acastroaraujo/socStats/main/simulation_function_week3.R"
+source(url)
+
+sims <- simulation_votes(dem_prob_pop = 0.75, sample_size = 90, num_sims = 1e3)
+sims
+
+## First I'll set up the ggplot2 theme I personally like best.
+## You might not have this font if you are on a Windows computer
+theme_set(theme_light(base_family = "Avenir Next Condensed")) 
+
+sims <- simulation_votes(dem_prob_pop = 0.52, sample_size = 300, num_sims = 500)
+
+results <- sims |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+results
+
+# plot the results
+
+results |> 
+  ggplot(aes(x = dem_prop)) +
+  geom_histogram(color = "white", boundary = .5, binwidth = .01) +
+  labs(title = "Simulation", subtitle = "dem_prob = 0.52, sample_size = 300, num_sim = 500")
+
+# how often does the poll predict the winner?
+mean(results$dem_prop > 0.5)
+
+# shade the same plot
+results <- results |> 
+  mutate(winner = if_else(dem_prop > 0.5, "Dem", "Rep"))
+
+results |> 
+  ggplot(aes(x = dem_prop, fill = winner)) +
+  geom_histogram(color = "white", boundary = .5, binwidth = .01) +
+  scale_fill_brewer(palette = "Set1", direction = -1)
+
+# strip plot
+results |> 
+  ggplot(aes(dem_prop, "")) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(height = 1/5, alpha = 0.2)
+
+# density plot
+results |> 
+  ggplot(aes(dem_prop)) + 
+  geom_density(fill = "grey90") + 
+  geom_vline(xintercept = 0.5, linetype = "dashed")
+
+```
+
+```{r}
+# mean & std deviation of dem_prop from original simulations, when n = 300
+mean(results$dem_prop)
+sd(results$dem_prop)
+
+# when n = 3000
+sims <- simulation_votes(dem_prob_pop = 0.52, sample_size = 3000, num_sims = 500)
+
+results <- sims |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+mean(results$dem_prop)
+sd(results$dem_prop)
+
+# when n = 3000000
+sims <- simulation_votes(dem_prob_pop = 0.52, sample_size = 30000, num_sims = 500)
+
+results <- sims |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+mean(results$dem_prop)
+sd(results$dem_prop)
+
+```
+
+When the sample size is 300, the mean is 0.52, and the SD = 0.03.\
+When the sample size is 3000, the mean is 0.51, and the SD = 0.01. \
+When the sample size is 30000, the mean is 0.52, and the SD = 0.00.
+
+The standard deviation decreases as the sample size increases. The mean stays around the same, but becomes more accurate to a true population.
+
+## 3.2.1.2 Exercise
+
+```{r}
+# Create five different simulations with different values of sample_size (e.g., 50, 200, 500, 1000, 2000). Put them together into a single dataset and then visualize the results using boxplots. What is going on?
+
+sim1 <- simulation_votes(dem_prob_pop = 0.75, sample_size = 50, num_sims = 1e3)
+sim2 <- simulation_votes(dem_prob_pop = 0.75, sample_size = 200, num_sims = 1e3)
+sim3 <- simulation_votes(dem_prob_pop = 0.75, sample_size = 500, num_sims = 1e3)
+sim4 <- simulation_votes(dem_prob_pop = 0.75, sample_size = 1000, num_sims = 1e3)
+sim5 <- simulation_votes(dem_prob_pop = 0.75, sample_size = 2000, num_sims = 1e3)
+
+sim1 <- sim1 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim2 <- sim2 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim3 <- sim3 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim4 <- sim4 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim5 <- sim5 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+## there's gotta be a faster way to do this, surely. is there a loop option?
+
+
+sims_samplesize <- bind_rows(sim1, sim2, sim3, sim4, sim5, .id = "id")
+# plot
+sims_samplesize |> 
+  ggplot(aes(dem_prop, "") ) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(height = 1/5, alpha = 0.2, color = 'blue') +
+  facet_wrap(~id)
+
+```
+
+As the sample size increases, the variance in proportion democrat decreases. Thus, our mean gets closer and closer to reality (0.75) when sample size increases.
+
+## 3.2.1.3. Exercise
+
+```{r}
+# Create five different simulations with different values of dem_prob_pop (e.g., 0.49, 0.52, 0.55, 0.58). Put them together into a single dataset and then visualize the results using boxplots. What is going on?
+
+sim6 <- simulation_votes(dem_prob_pop = 0.49, sample_size = 1000, num_sims = 1e3)
+sim7 <- simulation_votes(dem_prob_pop = 0.52, sample_size = 1000, num_sims = 1e3)
+sim8 <- simulation_votes(dem_prob_pop = 0.55, sample_size = 1000, num_sims = 1e3)
+sim9 <- simulation_votes(dem_prob_pop = 0.58, sample_size = 1000, num_sims = 1e3)
+
+
+sim6 <- sim6 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim7 <- sim7 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim8 <- sim8 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+sim9 <- sim9 |> 
+  group_by(id) |> 
+  summarize(dem_prop = mean(vote == "Dem"))
+
+
+sims_prob <- bind_rows(sim6, sim7, sim8, sim9, .id = "id")
+#  plot
+sims_prob |> 
+  ggplot(aes(dem_prop, "") ) +
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(height = 1/5, alpha = 0.2, color = 'blue') +
+  facet_wrap(~id)
+```
+
+As I change the proportion in the simulation parameters, the data generated approximates the pre-determined number. In other words, in each simulation, the data approximates reality.
