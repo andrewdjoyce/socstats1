@@ -1,0 +1,224 @@
+---
+title: "Week 5 Homework"
+author: "Andrew Joyce"
+date: "10-01-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+```
+
+## 5.2.1 Exercise
+
+Suppose that `p = 2/3`, and `size = 1`.\
+\
+Use `dbinom()` to verify the result in Equation 5.1
+
+```{r}
+eq1a <- dbinom(1, size = 1, prob = 2/3)
+isTRUE(eq1a == 2/3)
+
+eq1b <- dbinom(0, size = 1, prob = 2/3)
+isTRUE(eq1b == (1-2/3))
+
+eq1c <- dbinom(5, size = 1, prob = 2/3)
+isTRUE(eq1c == 0)
+
+
+```
+
+Use `pbinom()` to verify the results in Equation 5.2
+
+```{r}
+eq2a <- pbinom(-1, size = 1, prob = 2/3)
+isTRUE(eq2a == 0)
+
+eq2b <- pbinom(0, size = 1, prob = 2/3)
+isTRUE(eq2b == (1 - 2/3))
+
+eq2c <- pbinom(1, size = 1, prob = 2/3)
+isTRUE(eq2c == 1)
+
+eq2d <- pbinom(2, size = 1, prob = 2/3)
+isTRUE(eq2d == 1)
+```
+
+Use `rbinom()` to generate 100 samples from the Bernouilli distribution with `prob = 2/3`. Plot the results in `ggplot` using `geom_bar`.
+
+```{r}
+tosses <- tibble(
+  heads = (rbinom(100, 1, 2/3)) 
+)
+
+ggplot(tosses, aes(x = heads)) + geom_bar(fill = "lightgreen") +
+scale_x_continuous(breaks = 0:1)
+
+
+```
+
+## 5.3.1 Exercise
+
+The sample space ($\Omega$) of four fair coin flips is as follows:
+
+$$
+\Omega = 
+\begin{Bmatrix}
+HHHH \\ \\
+HHHT \\ HHTH \\ HTHH \\ THHH \\ \\
+HHTT \\ TTHH \\ HTTH \\ THHT \\ HTHT \\ THTH \\ \\
+HTTT \\ THTT \\ TTHT \\ TTTH \\ \\
+TTTT \\
+\end{Bmatrix}  \to
+\begin{Bmatrix} 
+4 \\ \\
+3 \\ 3 \\ 3 \\ 3 \\ \\
+2 \\ 2 \\ 2 \\ 2 \\ 2 \\ 2 \\ \\
+1 \\ 1 \\ 1 \\ 1 \\ \\
+0 \\
+\end{Bmatrix}
+$$
+
+## 5.3.2 Exercise
+
+"How many possible ways are there to get $X = 0$, $X = 1$, $X = 2$, $X = 3$, and $X = 4$?"
+
+-   There is 1 way to get $X=0$
+-   There are 4 ways to get $X = 1$
+-   There are 6 ways to get $X = 2$
+-   There are 4 ways to get $X = 3$
+-   There is 1 way to get $X = 4$.
+
+"What is the probability that $X = 2$?"
+
+-   The probability that $X = 2$ is $\frac{6}{16}$ which is equivalent to $\frac{3}{8}$, $0.375$, or $37.5$%.
+
+"Verify this by using the correct R function to calculate the probability that $X = 2$."
+
+```{r}
+dbinom(2, 4, .5)
+```
+
+"Use the correct R function to calculate the probability that $X \leq 1$?"
+
+```{r}
+dbinom(1, 4, .5) + dbinom(0, 4, .5)
+```
+
+## 5.3.3 Exercise
+
+```{r}
+# Use rbinom() to generate 1000 samples from the Binomial distribution with size = 5 and prob = 2/3. Plot the results in ggplot using geom_bar.
+tosses2 <- tibble(
+  heads = (rbinom(1000, 5, 2/3)) 
+)
+
+ggplot(tosses2, aes(x = heads)) + geom_bar(fill = "lightblue")
+```
+
+```{r}
+#Estimate the probability that X is an even number using the mean() function on those 1000 values.
+
+mean(tosses2 == 2 | tosses2 == 4)
+```
+
+## 5.3.5 Exercise
+
+"Review 5.3.1 and 5.3.2. What is the probability that $X=2$ when $p = 1/3$ and $n = 4$?"
+
+$$ Pr(X=2) = 6 * \frac{1}{3} \cdot \frac{1}{3} \cdot \frac{2}{3} \cdot \frac{2}{3} = \frac{24}{81} = 0.2963 = 29.63\% $$
+
+\*There are 6 permutations of getting 2 heads when flipping 4 coins, hence multiplying this probability times 6.
+
+"Verify this by using the correct R function to calculate the probability that $X = 2$."
+
+```{r}
+dbinom(2, size = 4, prob = 1/3)
+```
+
+## 5.3.7 Exercise
+
+**Part 1: Verify equation 5.3 using `dbinom`.**
+
+The equation for the binomial coefficient: $$ {n \choose x} = \frac{n!}{x! (n - x)!} $$
+
+The probabilities of any binomial distribution are:
+
+$$ \Pr(X = x) = {n \choose x} p^x (1-p)^{n-x} $$
+
+I want to verify these, supposing p = 2/3 and size = 15.
+
+I can use `dbinom(X, size, prob)` to perform one calculation.\
+I can also hand-calculate using: `choose(size,X)*(prob)^X*(1-prob)^(size-X)`. I
+
+Since `X` will vary, I will create a loop that includes outcomes of \[0, 15\]. That way, I can compare outcomes (0 heads, 1 head, 2 heads....15 heads) using dbinom and the hand calculation to verify they are close (they might not be identical due to rounding). If the two calculations are close, I have successfully verified the equation results.
+
+```{r}
+outcomes <- c(1:15)
+
+#dbinom loop
+results1 <- numeric(length(outcomes))
+for(i in seq_along(outcomes)) {
+  results1[i] <- dbinom(i, 15, 2/3)
+}
+
+#hand calculation loop
+results2 <- numeric(length(outcomes))
+for(i in seq_along(outcomes)) {
+  results2[i] <- choose(15,i)*((2/3)^i)*((1-2/3)^(15-i))
+}
+
+#Comparison of values
+tibble(results1, results2)
+
+# sum of each of these results should approximate 1.
+sum(results1)
+sum(results2)
+```
+
+**Part 2: Verify equation 5.4 using `pbinom`.**
+
+```{r}
+results3 <- pbinom(q = 0:15, size = 15, prob = 2/3)
+results3
+```
+
+As q approaches the specified size, the value of the cumulative distribution function approaches 1.
+
+::: callout-warning
+I'm not entirely sure how to "verify" an equation.
+:::
+
+## 5.4.1 Exercise
+
+```{r}
+grid <- tibble(prob = seq(0, 1, by = 0.001))
+grid$like <- dbinom(21, 47, grid$prob)
+grid <- grid |> 
+  mutate(like = dbinom(21, 47, grid$prob),
+         clike_raw = cumsum(like),
+         clike_normalized = clike_raw/ sum(like))
+
+ggplot(grid,
+       aes(x = prob,
+           y = clike_normalized)) + geom_line() + 
+      geom_vline(xintercept = 0.588, linetype = "dashed", color = "blue") +
+      geom_hline(yintercept = 0.975, linetype = "dashed", color = "red" )
+
+```
+
+"What what are the chances that `prob` is equal to or greater than 0.588?"
+
+```{r}
+grid |> filter (prob >= 0.588)
+```
+
+The chances that `prob` is `>=` 0.588 is 0.975. Or, 97.5%. I graphed this value on the red line on the above graph.
