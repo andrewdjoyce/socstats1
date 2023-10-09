@@ -1,0 +1,289 @@
+---
+title: "Week 6 Homework"
+author: "Andrew Joyce"
+date: "10-09-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+library(infer)
+library(janitor) ## for convenient "table" functions
+library(gssr)    ## for access to GSS data
+
+theme_set(theme_light(base_family = "Baskerville")) 
+```
+
+## 6.1.2 Exercise
+
+::: callout-note
+## Text of Question 6.1.2
+
+You are designing a survey to estimate the proportion of individuals who will vote Democrat. Assuming that respondents are a simple random sample of the voting population, how many people do you need to poll so that the standard error is less than 5 percentage points?
+:::
+
+***Method 1: Algebra***
+
+Given the following formula for standard error:
+
+$$se_{p} = \sqrt \frac{p(1-p)}{n}$$ and asssuming $p = 0.53$ & $se_{p}= .05$, solve for $n$.
+
+$$
+0.05 = \sqrt \frac{0.53 \times 0.47}{n}
+$$ Thus, $n = 99.64$. But, that means that $se_{p} = 0.05$ exactly. The above question asks that the answer is *less than* 5 percentage points. So, I round up: $n = 100$ for $se_{p}$ to be less than 5 percentage points (\< 0.05). (Plus, we can't have 99.64 people, we can only have 99 or 100).
+
+***Method 2: R Code***
+
+I can confirm this with some code. I will calculate the value for $se_{p}$ for values of $n$ ranging from $n=1$ to $n = 1000$. Then, I can see at what value of $n$ is $se_{p} < 0.05$.
+
+```{r}
+s_e <- tibble(
+  n = c(1:1000),
+  std_error = sqrt((0.53*0.47)/n)
+)
+
+s_e |> filter(s_e$std_error < 0.05)
+```
+
+Thus, when $n=100$, $se_{p} < 0.05$.
+
+## 6.1.5 Exercise
+
+::: callout-note
+## Text of 6.1.5 Question, Part 1
+
+What is the probability of observing the "true" value ($p=0.53$) under the null?
+:::
+
+To solve:
+
+```{r}
+set.seed(321)
+S <- 1e4 
+poll_size <- 1000 
+draws <- rbinom(S, size = poll_size, prob = 0.50)
+null <- tibble("prop_est" = draws / poll_size)
+
+nrow(filter(null, prop_est == 0.53)) / nrow(null) * 100
+
+```
+
+The probability that we observe the "true" value ($p=0.53$) under the null is $0.41\%$.
+
+::: callout-note
+## Text of 6.1.5 Question, Part 2
+
+What is the probability of observing `prop_hat` under the null? Is this statistically significant if the confidence level ($\alpha$) is set to 0.05?
+:::
+
+```{r}
+set.seed(321)
+one_dataset <- rbinom(poll_size, size = 1, prob = 0.53)
+prop_hat <- mean(one_dataset)
+
+nrow(filter(null, prop_est == prop_hat)) / nrow(null) * 100 
+```
+
+The probability of observing `prop_hat` under the null is 1.75%. If $\alpha$ is set to 0.05, that is statistically significant, since `prop_hat` \< $\alpha$.
+
+## 6.1.7 Exercise
+
+::: callout-note
+## Text of 6.1.7 Exercise Question
+
+The formula for calculating the standard error of a difference in proportions is given by:
+
+$$
+\sigma_{\hat p_1 - \hat p_2} = \sqrt{\frac{p_1 (1 - p_1)}{n_1} + \frac{p_2 (1 - p_2)}{n_2}}
+$$
+
+Verify that this standard error corresponds to `sd(theta_distribution)`.
+:::
+
+I can verify that the above equation is equal to `sd(theta_distribution)` by computing the value of $\sigma_{\hat p_1 - \hat p_2}$ mathematically.
+
+```{r}
+# first, let's generate the same numbers as in the example
+p1 <- 0.5
+n1 <- 120
+p2 <- 0.6
+n2 <- 90
+
+S <- 1e5
+draws1 <- rbinom(S, size = n1, prob = p1) 
+proportions1 <- draws1 / n1 
+draws2 <- rbinom(S, size = n2, prob = p2)
+proportions2 <- draws2 / n2
+theta_distribution <- proportions1 - proportions2
+
+```
+
+Now that I have the example numbers in memory, I can verify:
+
+```{r}
+sqrt( ((p1 * (1- p1))/n1) + ((p2 * (1- p2))/n2) )
+sd(theta_distribution)
+```
+
+I can also graph the above equation on top of the histogram for `sd(theta_distribution)`.
+
+```{r}
+tibble(theta_distribution) |> 
+  ggplot(aes(theta_distribution)) +
+  geom_histogram(
+    color = "white", boundary = 0.5, binwidth = 0.025,
+    mapping = aes(y = after_stat(density))
+  ) +
+  labs(title = "Sampling Distribution of Differences in Proportions",
+       subtitle= "P1 = 0.5, P2 = 0.6, N1 = 120, N2 = 90") +
+  geom_function(fun = \(x) dnorm(x, mean = mean(theta_distribution), sd = sd(theta_distribution)), color = "blue", linewidth = 1.05)
+```
+
+## 6.1.8 Exercise
+
+::: callout-note
+## Text of 6.1.8 Exercise Question
+
+*Comparison of proportions.*
+
+A randomized experiment is performed within a survey. 1000 people are contacted. Half the people contacted are promised a \$5 incentive to participate, and half are not promised an incentive. The result is a 50% response rate among the treated group and 40% response rate among the control group. Give an estimate and standard error of the difference in proportions.
+:::
+
+```{r}
+p1 <- 0.5
+n1 <- 500
+p2 <- 0.4
+n2 <- 500
+
+S <- 1e4
+draws1 <- rbinom(S, size = n1, prob = p1) 
+proportions1 <- draws1 / n1 
+draws2 <- rbinom(S, size = n2, prob = p2)
+proportions2 <- draws2 / n2
+theta_distribution <- proportions1 - proportions2
+
+# estimate of diff of proportions
+mean(theta_distribution)
+
+# se of the difference in proportions
+sd(theta_distribution)
+```
+
+The estimate for the difference in proportions is 9.95%. The standard error of the difference in proportions is 0.0315.
+
+## GSS Setup
+
+```{r}
+gss18 <- gss_get_yr(2018) 
+
+d <- gss18 |> 
+  select(sex, attend, polviews) |> 
+  haven::zap_missing() |> 
+  mutate(sex = as_factor(sex)) |> 
+  haven::zap_labels() |> 
+  drop_na()
+
+glimpse(d)
+```
+
+## 6.2.1 Exercise
+
+The variable `attend` asks respondents "How often do you attend religious services?" The answers are coded as follows:
+
+-   0: Never
+-   1: Less than once a year
+-   2: About once or twice a year
+-   3: Several times a year
+-   4: About once a month
+-   5: 2-3 times a month
+-   6: Nearly every week
+-   7: Every week
+-   8: Several times a week
+
+The variable `polviews` asks respondents to place themselves on a scale of political views from 1 to 7, with categories being:
+
+-   1: Extremely liberal
+-   2: Liberal
+-   3: Slightly liberal
+-   4: Moderate, middle of the road
+-   5: Slightly conservative
+-   6: Conservative
+-   7: Extremely conservative
+
+## 6.2.2 Exercise
+
+::: callout-note
+## Text of 6.2.2 Exercise Question
+
+Repeat what we did in class with Steve, but compare the `weekly` variable to a new variable call `conservative`.
+:::
+
+```{r}
+d <- gss18 |> 
+  mutate(female = if_else(sex == 2, 1L, 0L),
+         weekly = if_else(attend >= 7, 1L, 0L),
+         conservative = if_else(polviews >= 5, 1L, 0L)) |> 
+  select(female, weekly, conservative) |> 
+  drop_na() |> 
+  mutate(sex = if_else(female == 1, "Female", "Male"))
+
+glimpse(d$conservative)
+
+```
+
+## 6.2.3 Exercise
+
+::: callout-note
+## Question
+
+Is the difference in proportions between `conservative` and `weekly` statistically significant?
+:::
+
+```{r}
+obs_diff <- mean(d$conservative) - mean(d$weekly)
+d <- d |> mutate(attendance = if_else(weekly == 1, "Weekly", "LessThanWeekly"))
+
+boot_dist <- d |> 
+  specify(conservative ~ attendance) |> 
+  generate(reps = 1000,
+           type = "bootstrap") |> 
+  calculate(stat = "diff in means", 
+            order = c("Weekly", "LessThanWeekly")) 
+
+ci <- boot_dist |> 
+  get_confidence_interval(level = .95)
+ci
+
+boot_dist |> 
+  visualize() +
+  shade_ci(ci) 
+
+
+
+```
+
+The 95% confidence interval in the difference of proportions is between 14.7% and 24.7%. Thus, the difference in proportions between `conservative` and `weekly` is significant.
+
+## 6.2.4 Exercise
+
+The grid "counts" shows the cross-tabulation for the 9 total categories of `attend` (0 through 8) against the 7 total categories of `polviews` (1 through 7). Each box in the grid shows the number of respondents in each category. For example, there are 16 respondents who report 0 for attend (never) and 7 for polviews (extremely conservative), which is the cell in the top left corner.
+
+The grid "row percentages" calculates for each cell the proportion of respondents relative to total number of respondents in that row. Here, the rows are the categories of responses to `polviews`. There are 122 total (69 + 5 + 9 + 7 + 3 + 9 + 3 + 12 + 5) respondents who selected "1: Extremely liberal" on their response to `polviews`. Each cell calculates the percentage of respondents based on their reported attendance. For example, 69 out of the total 122 respondents for 1 on polviews also selected 0 on attendance. 69/122 = 56.6%. Then, of the 122 respondents who report 1 on polviews, 5 of these selected 1 on attendance. 5/122 = 4.0%. In short, a row percentage shows the proportion of respondents in that row (here, a response to the polviews question) in a particular category of the column (here, a response to the attendance question.)
+
+The grid "column percentages" does the reverse. Each cell is the percent of respondents within that column that chose a particular row response. Here, the columns are the categories of responses to `attend`. There are 668 total (16 + 74 + 66 + 248 + 77 + 128 + 69) respondents who selected "0" on their response to attend (0: never). Each cell in that column is the proportion of those who selected 0 on their attend response for each category of `polviews`. For example, 16 out of 668 total who selected 0 on attend also selected 7 on polviews (extremely conservative). 16/668 = 2.4%.
+
+In sum: row percentages are the % that each each cell represents of the *row total*.\
+Column percentages are the % that each cell represents of the *column total.*
+
+This can get confusing. Note that the sum of all cells is far greater than 100. Rather, the sum of all the percentages in a row is 100, and the sum of all percentages in a column is 100. This is because these percentages are based on row/column totals, not the total sample.
+
+The % in a cell is *not* the total number of cases in the sample that have both characteristics of row and column values. For a row percentage, the % in a cell is the proprotion of cases *from all cases **in that row*** with the particular column characteristic. For a column percentage, the % in a cell is the proportion of cases *from all cases **in that column*** with the particular row characteristic. Tricky!
