@@ -1,0 +1,316 @@
+---
+title: "Week 7 Homework"
+author: "Andrew Joyce"
+date: "10-16-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+bibliography: references.bib
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+library(infer)
+library(janitor) ## for convenient "table" functions
+library(gssr)    ## for access to GSS data
+
+theme_set(theme_light(base_family = "Baskerville")) 
+```
+
+## 7.1.1. Exercise
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(tidyverse)
+library(gssr)
+gss18v1 <- gss_get_yr(2018) 
+
+d1 <- gss18v1 |> 
+  select(attend, polviews) |> 
+  haven::zap_missing() |> 
+  haven::zap_labels() |> 
+  mutate(weekly = if_else(attend >= 7, 1L, 0L),
+         conservative = if_else(polviews >= 5, 1L, 0L)) |> 
+  drop_na() 
+```
+
+```{r}
+tabyl(d1, weekly, conservative) |> adorn_totals(c("row", "col") )
+
+```
+
+```{r}
+tabyl(d1, weekly) ## for answers #1 and #2
+tabyl(d1, conservative) # for answer number 8
+```
+
+1.  $\Pr(W)$ = 0.22
+2.  $\Pr(W^C)$ = 0.77
+
+```{r}
+# to answer #3 and #5
+tabyl(d1, weekly, conservative) |> 
+  adorn_percentages() |> 
+  adorn_pct_formatting(digits = 0)
+
+# to answer #4
+tabyl(d1, weekly, conservative) |> 
+  adorn_percentages(denominator = "col") |> 
+  adorn_pct_formatting(digits = 0)
+
+```
+
+3.  $\Pr(C \mid W)$ = 0.48
+4.  $\Pr(W \mid C)$ = 0.33
+5.  $\Pr(C \mid W^\complement)$ = 0.28
+
+```{r}
+# for answers to #6 and #7
+tabyl(d1, weekly, conservative) |> 
+  adorn_percentages(denominator = "all") |>  
+  adorn_pct_formatting(digits = 0)
+```
+
+6.  $\Pr(W \text{ and } C)$ = 0.11
+7.  $\Pr(W^\complement \text{ and } C^\complement)$ = 0.56
+8.  If we assume $W$ and $C$ are independent, what *would* be their joint probability?
+
+Events $W$ and $C$ are Independent if and only if the joint probability is equal to the product of the marginal probabilities. That is, $\Pr(W \text{ and } C) = \Pr(W)Pr(C)$.
+
+Since $\Pr(W)$ = 0.22 and $\Pr(C)$ = 0.33, we should expect the joint probability to be $0.22 * 0.33$, or 0.0726
+
+Thus, the **expected joint probability assuming independence = 0.0726, or 7.26%.**
+
+## 7.1.2 Exercise
+
+@diprete2013 find that women outnumber men in terms of bachelor's degree completion. So, I am going to compare sex ($F$ = female, $F^\complement$=male) and completion of a bachelor's degree or higher ( $D$ ).
+
+```{r}
+# data prep
+library(gssr)
+gss18v2 <- gss_get_yr(2018) |> 
+  haven::zap_labels()
+
+d2 <- gss18v2 |> 
+  select(sex, degree) |> 
+  drop_na() |> 
+  mutate(female = if_else(sex == 2, 1L, 0L),                       
+         sex = if_else(female == 1, "Female", "Male"),             
+         degree = if_else(degree >= 3, 1L, 0L),                  
+         degree_chr = if_else(degree == 1, "Bachelor's or Higher", "Less than Bachelor's")) |> 
+  relocate(sex, female, degree_chr, degree)
+```
+
+```{r}
+# contingency table
+tabyl(d2, sex, degree_chr) |> 
+  adorn_totals(c("row", "col")) |> 
+  adorn_percentages(denominator = "all") |> 
+  adorn_pct_formatting(digits = 0) |> 
+  adorn_ns() 
+ 
+```
+
+I will show relevant code below, but I will input the answers to the questions in the table here.
+
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| Notation                                                 | Translation                                                                                             | Probability                                          |
++==========================================================+=========================================================================================================+======================================================+
+| 1.  $\Pr(D)$                                             | Probability of completing a bachelor's degree or higher                                                 | 0.30 or 30%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 2.  $\Pr(D^\complement)$                                 | Probability of not completing a bachelor's degree or higher                                             | 0.70 or 70%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 3.  $\Pr(F \mid D)$                                      | Probability of being female given completion a college degree (note that this is a nonsense prediction) | 0.56 or 56%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 4.  $\Pr(D \mid F)$                                      | Probability of completing a college degree given respondent is female                                   | 0.31 or 31%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 5.  $\Pr(D \mid F^\complement)$                          | Probability of completing a college degree given respondent is male (literally, not female)             | 0.30 or 30%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 6.  $\Pr(D \text{ and } F)$                              | Joint probability of completing a college degree and female                                             | 0.17 or 17%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 7.  $\Pr(D^\complement \text{ and } F^\complement)$      | Joint probability of not completing a college degree and male                                           | 0.31 or 31%                                          |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+| 8.  Expected $\Pr(D \text{ and } F)$ given independence. | Assuming sex and degree completion are independent, what would we expect the joint probability to be?   | Expected $\Pr(D \text{ and } F)$ given independence: |
+|                                                          |                                                                                                         |                                                      |
+|                                                          |                                                                                                         | $Pr(D) * Pr(F)$ = $0.30 * 0.55$ = $0.165$            |
+|                                                          |                                                                                                         |                                                      |
+|                                                          |                                                                                                         | or **16.5% assuming independence**                   |
++----------------------------------------------------------+---------------------------------------------------------------------------------------------------------+------------------------------------------------------+
+
+```{r}
+# for 1 & 2 and #8
+tabyl(d2, degree)
+tabyl(d2, female)
+
+# to answer #3  (Pr(F | D))
+tabyl(d2, degree, female) |> 
+  adorn_percentages() |> 
+  adorn_pct_formatting(digits = 0)
+
+# to answer #4 and 5 (Pr(D | F) and Pr (D | F^C))
+tabyl(d2, degree, female) |> 
+  adorn_percentages(denominator = "col") |> 
+  adorn_pct_formatting(digits = 0)
+
+# to answer #7 (Pr(D & F))
+tabyl(d2, degree, female) |> 
+  adorn_percentages(denominator = "all") |> 
+  adorn_pct_formatting(digits = 0)
+```
+
+## 7.2.1 Exercise
+
+Comparing the probabilities of $\Pr(W \mid C)$ and $\Pr(W \mid C^\complement)$
+
+-   $\Pr(W \mid C)$ = 0.33
+
+-   $\Pr(W \mid C^\complement)$ = 0.17
+
++-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Method                      | Result                                                                                                                                                        |
++=============================+===============================================================================================================================================================+
+| Difference in Probabilities | 0.16 or 16% (probability of weekly attendance for conservatives is 16% greater than the probability of weekly attendance for those who are not conservatives) |
++-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Relative Risk Ratio         | 1.94 (probability of weekly attendance is 1.94 times greater for conservatives than for those who are not conservatives)                                      |
++-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Odds Ratio                  | 2.35 (the odds of weekly attendance are 2.35 times greater for conservatives than for those who are not conservatives)                                        |
++-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Log Odds ratio              | 0.85 (the log-odds of weekly attendance are 0.85 units higher for conservatives than for those who are not conservative)                                      |
++-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+```{r}
+# diff in probabilities
+0.33 - 0.17
+
+# relative risk ratio
+0.33/0.17
+
+# odds ratio
+(1243 * 240)/(257 * 495)
+
+# log-odds ratio
+log((1243 * 240)/(257 * 495))
+```
+
+## 7.2.2 Exercise
+
+1.  Draw a sampling distribution for the relative risk ratio `(stat = "ratio of props")`
+
+```{r}
+boot1 <- d1 |> 
+  mutate(conservative = if_else(conservative == 1L, "conservative", "other")) |> 
+  mutate(weekly = if_else(weekly == 1L, "weekly", "other")) |> 
+  specify(response = weekly, explanatory = conservative, success = "weekly") |> 
+  generate(reps = 1e4, type = "bootstrap") |> 
+  calculate(stat = "ratio of props", order = c("conservative", "other"))
+  
+ci <- get_confidence_interval(boot1)
+
+boot1 |> 
+  visualize() +
+  shade_ci(ci) +
+  geom_vline(xintercept = 1.94, linetype = "dashed") # this is the value I hand-calculated in 7.2.1
+
+```
+
+2.  Draw a sampling distribution for the odds-ratio
+
+```{r}
+boot1 <- d1 |> 
+  mutate(conservative = if_else(conservative == 1L, "conservative", "other")) |> 
+  mutate(weekly = if_else(weekly == 1L, "weekly", "other")) |> 
+  specify(response = weekly, explanatory = conservative, success = "weekly") |> 
+  generate(reps = 1e4, type = "bootstrap") |> 
+  calculate(stat = "odds ratio", order = c("conservative", "other"))
+  
+ci <- get_confidence_interval(boot1)
+
+boot1 |> 
+  visualize() +
+  shade_ci(ci) +
+  geom_vline(xintercept = 2.35, linetype = "dashed") # this is the value I hand-calculated in 7.2.1
+```
+
+## 7.2.3 Exercise
+
+Comparing the probabilities of $\Pr(D \mid F)$ and $\Pr(D \mid F^\complement)$
+
+-   $\Pr(D \mid F)$ = 0.31 (Probability of college degree completion, given female)
+
+-   $\Pr(D \mid F^\complement)$ = 0.30 (Probability of college degree completion, given male)
+
++-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| Method                      | Result                                                                                                                              |
++=============================+=====================================================================================================================================+
+| Difference in Probabilities | 0.01 or 1% (probability of college degree completion for women is 1% greater than probability of college degree completion for men) |
++-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| Relative Risk Ratio         | 1.03 (probability of weekly attendance is 1.03 times greater for women than for men)                                                |
++-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| Odds Ratio                  | 1.02 (the odds of degree completion are 1.02 times greater for women than for men)                                                  |
++-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+| Log Odds ratio              | 0.02 (the log-odds of degree completion are 0.02 units greater for women than for men)                                              |
++-----------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+
+*Note: I suspect these differences are low because the GSS samples adults of all ages (18-89). The findings from @diprete2013 are of newer cohorts.*
+
+```{r}
+# diff in probabilities
+0.31 - 0.30
+
+# relative risk ratio
+0.31/0.30
+
+# odds ratio
+(396 * 736)/(900 * 316)
+
+# log-odds ratio
+log((396 * 736)/(900 * 316))
+```
+
+## 7.2.4 Exercise
+
+1.  Draw a sampling distribution for the relative risk ratio `(stat = "ratio of props")`
+
+```{r}
+boot2 <- d2 |> 
+  mutate(female = if_else(female == 1L, "women", "men")) |> 
+  mutate(degree = if_else(degree == 1L, "degree", "other")) |> 
+  specify(response = degree, explanatory = female, success = "degree") |> 
+  generate(reps = 1e4, type = "bootstrap") |> 
+  calculate(stat = "ratio of props", order = c("women", "men"))
+  
+ci <- get_confidence_interval(boot2)
+
+boot2 |> 
+  visualize() +
+  shade_ci(ci) +
+  geom_vline(xintercept = 1.03, linetype = "dashed") # this is the value I hand-calculated in 7.2.3
+```
+
+2.  Draw a sampling distribution for the odds ratio.
+
+```{r}
+boot2 <- d2 |> 
+  mutate(female = if_else(female == 1L, "women", "men")) |> 
+  mutate(degree = if_else(degree == 1L, "degree", "other")) |> 
+  specify(response = degree, explanatory = female, success = "degree") |> 
+  generate(reps = 1e4, type = "bootstrap") |> 
+  calculate(stat = "odds ratio", order = c("women", "men"))
+  
+ci <- get_confidence_interval(boot2)
+
+boot2 |> 
+  visualize() +
+  shade_ci(ci) +
+  geom_vline(xintercept = 1.02, linetype = "dashed") # this is the value I hand-calculated in 7.2.3
+```
