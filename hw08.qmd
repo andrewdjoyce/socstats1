@@ -1,0 +1,470 @@
+---
+title: "Week 8 Homework"
+author: "Andrew Joyce"
+date: "10-21-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+toc: true
+---
+
+## Two Models
+
+***Linear Probability Model***
+
+-   General form: $\Pr(Y = 1 \mid X = x) = \alpha +\beta x$
+-   Simplified form: $p = \alpha + \beta x$
+-   $\alpha = \Pr(Y = 1 \mid X = 0)$
+-   $\beta = \Pr(Y = 1 \mid X = 1) - \Pr(Y = 1 \mid X = 0)$
+
+Here, $\alpha$ is a probability and $\beta$ is a difference in probabilities.
+
+***Logistic Regression Model***
+
+-   General form: $\log (\frac{p}{1-p}) = \alpha + \beta x$
+-   $\alpha = \log \Big( \frac{\Pr(Y = 1 \mid X = 0)}{\Pr(Y = 0 \mid X = 0)}  \Big)$
+-   $\alpha + \beta =  \log \Big( \frac{\Pr(Y = 1 \mid X = 1)}{\Pr(Y = 0 \mid X = 1)}  \Big)$
+
+Here, $\alpha$ is a log-dd and $\beta$ is a difference in log-odds (a log-odds ratio).
+
+## Setup: attend, degree, sex, and polviews
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+library(infer)
+library(janitor) ## for convenient "table" functions
+library(gssr)    ## for access to GSS data
+
+theme_set(theme_light(base_family = "Baskerville")) 
+```
+
+```{r}
+gss18 <- gss_get_yr(2018) 
+
+d <- gss18 |> 
+  select(attend, polviews, sex, degree) |> 
+  haven::zap_missing() |> 
+  haven::zap_labels() |> 
+  mutate(weekly = if_else(attend >= 7, 1L, 0L),
+         conservative = if_else(polviews >= 5, 1L, 0L),
+         female = if_else(sex == 2, 1L, 0L),
+         college = if_else(degree >= 3, 1L, 0L)) |> 
+  drop_na() 
+```
+
+```{r}
+# glm(formula = weekly ~ college, family = "binomial", data = d)
+
+## general form
+# glm(formula = y ~ x, family = "binomial", data = d)
+```
+
+## Model 1: Weekly & College
+
+For variable "weekly":
+
+-   1: Attends religious services weekly or more
+-   0: Attends religious services less than weekly
+
+For variable "college":
+
+-   1: Has completed a bachelor's degree or higher
+-   0: Has not completed a bachelor's degree
+
+Y = weekly, X = college
+
+***Linear Probability model:***
+
+$\alpha = 0.205$
+
+$\beta = 0.061$
+
+$p = 0.205 + 0.061x$
+
+The probability of those with a college degree attending religious services weekly is 6.1% points greater than the probability of those without a college degree attending religious services weekly.
+
+***Logistic Regression model:***
+
+$\alpha = -1.352$
+
+$\beta = 0.304$
+
+$\text{logit} (p) = 0.304x - 1.352$
+
+Those with a college degree have 0.304 higher logged odds of attending religious services weekly compared to those who do not have a college degree.
+
+```{r}
+tabyl(d, weekly, college) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+316/1538
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(181/679) - (316/1538)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((316/1538)/(1222/1538))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((181/697)/(516/697)) - (log((316/1538)/(1222/1538)))
+```
+
+## Model 2: Weekly & Female
+
+For variable "weekly":
+
+-   1: Attends religious services weekly or more
+-   0: Attends religious services less than weekly
+
+For variable "female":
+
+-   1: Respondent is a woman
+-   0: Respondent is a man
+
+Y = weekly, X = female
+
+***Linear Probability model:***
+
+$\alpha = 0.203$
+
+$\beta = 0.035$
+
+$p = 0.203 + 0.035x$
+
+The probability of women attending religious services weekly is 3.5% points greater than the probability of men attending religious services weekly.
+
+***Logistic Regression model:***
+
+$\alpha = -1.367$
+
+$\beta = 0.204$
+
+$\text{logit} (p) = 0.204x - 1.367$
+
+Women have 0.204 higher logged odds of attending religious services weekly compared to men.
+
+```{r}
+tabyl(d, weekly, female) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+205/1008
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(292/1226) - (205/1008)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((205/1009)/(804/1009))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((292/1226)/(934/1226)) - log((205/1009)/(804/1009))
+```
+
+## Model 3: Weekly & Conservative
+
+For variable "weekly":
+
+-   1: Attends religious services weekly or more
+-   0: Attends religious services less than weekly
+
+For variable "conservative":
+
+-   1: Respondent describes political views as conservative
+-   0: Respondent describes political views as something other than conservative
+
+Y = weekly, X = conservative
+
+***Linear Probability model:***
+
+$\alpha = 0.171$
+
+$\beta = 0.155$
+
+$p = 0.171 + 0.155x$
+
+The probability of conservatives attending religious services weekly is 15.5% points greater than the probability of those who are not conservative attending religious services weekly.
+
+***Logistic Regression model:***
+
+$\alpha = -1.576$
+
+$\beta = 0.852$
+
+$\text{logit} (p) = 0.852x - 1.576$
+
+Conservatives have 0.852 higher logged odds of attending religious services weekly compared to those who are not conservative.
+
+```{r}
+tabyl(d, weekly, conservative) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+257/1500
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(240/735) - (257/1500)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((257/1500)/(1243/1500))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((240/735)/(495/735)) - log((257/1500)/(1243/1500))
+```
+
+## Model 4: College & Female
+
+For variable "college":
+
+-   1: Has completed a bachelor's degree or higher
+-   0: Has not completed a bachelor's degree
+
+For variable "female":
+
+-   1: Respondent is a woman
+-   0: Respondent is a man
+
+Y = college, X = female
+
+***Linear Probability model:***
+
+$\alpha = 0.310$
+
+$\beta = 0.003$
+
+$p = 0.310 + 0.003x$
+
+The probability of women completing a college degree is 0.3% points greater than the probability of men completing a college degree
+
+***Logistic Regression model:***
+
+$\alpha = -0.799$
+
+$\beta = 0.014$
+
+$\text{logit} (p) = 0.014x - 0.799$
+
+Women have 0.014 higher logged odds of completing a college degree compared to men.
+
+```{r}
+tabyl(d, college, female) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+313/1009
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(384/1226) - (313/1009)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((313/1009)/(696/1009))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((384/1226)/(842/1226)) - log((313/1009)/(696/1009))
+```
+
+## Model 5: College & Weekly
+
+For variable "college":
+
+-   1: Has completed a bachelor's degree or higher
+-   0: Has not completed a bachelor's degree
+
+For variable "weekly":
+
+-   1: Attends religious services weekly or more
+-   0: Attends religious services less than weekly
+
+Y = college, X = weekly
+
+***Linear Probability model:***
+
+$\alpha = 0.297$
+
+$\beta = 0.182$
+
+$p = 0.297 + 0.182x$
+
+The probability of weekly attenders completing a college degree is 18.2% points greater than the probability of those who do not attend weekly completing a college degree.
+
+***Logistic Regression model:***
+
+$\alpha = -0.862$
+
+$\beta = 0.305$
+
+$\text{logit} (p) = 0.305x - 0.862$
+
+Those who attend religious services weekly have 0.305 higher logged odds of completing a college degree compared to those who attend religious services at lower rates.
+
+```{r}
+tabyl(d, college, weekly) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+516/1738
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(181/497) - (316/1738)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((516/1738)/(1222/1738))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((181/497)/(316/497)) - log((516/1738)/(1222/1738))
+```
+
+## Model 6: College & Conservative
+
+For variable "college":
+
+-   1: Has completed a bachelor's degree or higher
+-   0: Has not completed a bachelor's degree
+
+For variable "conservative":
+
+-   1: Respondent describes political views as conservative
+-   0: Respondent describes political views as something other than conservative
+
+Y = college, X = weekly
+
+***Linear Probability model:***
+
+$\alpha = 0.318$
+
+$\beta = -0.019$
+
+$p = 0.318 - 0.019x$
+
+The probability of conservatives completing a college degree is 1.9% points less than the probability of those who are not conservative completing a college degree.
+
+***Logistic Regression model:***
+
+$\alpha = -0.763$
+
+$\beta = -0.088$
+
+$\text{logit} (p) = -0.088x - 0.763$
+
+Conservatives have 0.088 lower logged odds of completing a college degree compared to those who are not conservative.
+
+```{r}
+tabyl(d, college, conservative) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+477/1500
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(220/735) - (477/1500)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((477/1500)/(1023/1500))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((220/735)/(515/735)) - log((477/1500)/(1023/1500))
+```
+
+## Model 7: Conservative & College
+
+For variable "conservative":
+
+-   1: Respondent describes political views as conservative
+-   0: Respondent describes political views as something other than conservative
+
+For variable "college":
+
+-   1: Has completed a bachelor's degree or higher
+-   0: Has not completed a bachelor's degree
+
+Y = conservative, X = college
+
+***Linear Probability model:***
+
+$\alpha = 0.335$
+
+$\beta = -0.019$
+
+$p = 0.335 - 0.019x$
+
+The probability of those who have a college degree identifying as conservative is 1.9% points lower than the probability for those who have not completed a college degree.
+
+***Logistic Regression model:***
+
+$\alpha = -0.686$
+
+$\beta = -0.088$
+
+$\text{logit} (p) = -0.088x - 0.686$
+
+Those who have a college degree have 0.088 lower logged odds of identifying as a college degree compared to those who have not completed a college degree.
+
+```{r}
+tabyl(d, conservative, college) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+515/1538
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(220/697) - (515/1538)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((515/1538)/(1023/1538))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((220/697)/(477/697)) - log((515/1538)/(1023/1538))
+```
+
+## Model 8: Conservative & Female
+
+For variable "conservative":
+
+-   1: Respondent describes political views as conservative
+-   0: Respondent describes political views as something other than conservative
+
+For variable "female":
+
+-   1: Respondent is a woman
+-   0: Respondent is a man
+
+Y = conservative, X = college
+
+***Linear Probability model:***
+
+$\alpha = 0.347$
+
+$\beta = -0.033$
+
+$p = 0.347 - 0.033x$
+
+The probability of women identifying as conservative is 3.3% points lower than the probability for men identifying as conservative.
+
+***Logistic Regression model:***
+
+$\alpha = -0.633$
+
+$\beta = -0.149$
+
+$\text{logit} (p) = -0.149x - 0.633$
+
+Women have 0.149 lower logged odds of identifying as conservative compared to men.
+
+```{r}
+tabyl(d, conservative, female) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+350/1009
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(385/1226) - (350/1009)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((350/1009)/(659/1009))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((385/1226)/(841/1226)) - log((350/1009)/(659/1009))
+
+# verify logistic answers using a regression model
+glm(formula = conservative ~ female, family = "binomial", data = d)
+```
