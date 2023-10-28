@@ -1,0 +1,301 @@
+---
+title: "Week 8 Homework"
+author: "Andrew Joyce"
+date: "10-28-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+toc: true
+---
+
+## Setup
+
+```{r}
+#| results: hide
+#| error: false
+#| warning: false
+#| message: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+
+library(tidyverse)
+library(gssr)
+library(janitor)
+theme_set(theme_light(base_family = "Optima"))
+
+gss18 <- gss_get_yr(2018) 
+
+d <- gss18 |> 
+  select(attend, polviews, cappun) |> 
+  haven::zap_missing() |> 
+  haven::zap_labels() |> 
+  mutate(
+    weekly = if_else(attend >= 7, 1L, 0L),
+    conservative = if_else(polviews >= 5, 1L, 0L),
+    cappun = if_else(cappun == 1, 1L, 0L)
+    ) |> 
+  drop_na() |> 
+  select(cappun, weekly, conservative) 
+```
+
+## 9.1.1 Exercise (2 x 2)
+
+```{r}
+tabyl(d, cappun, weekly) |> adorn_totals(c("row", "col"))
+
+# GLM alpha: Pr(Y = 1 | X = 0)
+1050/1637
+
+# GLM Beta: Pr(Y = 1 | X = 1) - Pr (Y = 1 | X = 0)
+(277/465) - (1050/1637)
+
+# Logistic alpha: log( (pr(y=1 | x=0))/ pr(y = 0 | x = 0))
+log((1050/1637)/(587/1637))
+
+# Logistic beta: log ( (pr(y = 1 | x = 1)) / pr(y = 0 | x = 1)) - alpha
+log((277/465)/(188/465)) - log((1050/1637)/(587/1637))
+
+# verify calculation for logistic model
+glm(formula = cappun ~ weekly, family = "binomial", data = d)
+```
+
+$X$ = Weekly attendance and $Y$ = favor capital punishment
+
+***Linear Probability model:***
+
+$\alpha = 0.641$
+
+$\beta = -0.046$
+
+$p = 0.641 - 0.0461x$
+
+***Logistic Model***
+
+$\alpha = 0.582$
+
+$\beta = -0.194$
+
+$\text{logit} (p) = 0.582 - 0.194x$
+
+## 9.1.2 Exercise (2 x 2 x 2)
+
+```{r}
+crosstab2 <- table(cp = d$cappun, weekly = d$weekly, conservative = d$conservative)
+
+as_tibble(crosstab2) |> 
+  mutate(cp = if_else(cp == "1", "favors", "opposes")) |> 
+  pivot_wider(names_from = cp, values_from = n)
+
+# logistic alpha: x1 = 0 and x2 = 0
+log(682/485)
+
+# logistic beta1: x1 = 1 and x2 = 0
+log(123/115) - log(682/485)
+
+# logistic beta2: x1 = 0 and x2 = 1
+log(368/102) - log(682/485)
+
+# logistic beta3: x1 = 1 and x2 = 1
+log(154/73) - (log(123/115) - log(682/485)) - (log(368/102) - log(682/485)) - log(682/485)
+
+# verify
+glm(formula = cappun ~ weekly + conservative + weekly*conservative, family = "binomial", data = d)
+
+# LPM alpha: Pr(y = 1 | x1=0 & x2 = 0)
+682/(485 + 682)
+
+# LPM beta1: Pr(y = 1 | x1=1 & x2 = 0) - alpha
+(123/(123 + 115)) - 682/(485 + 682)
+
+# LPM beta2: Pr(y = 1 | x1=0 & x2 = 1) - alpha
+(368/(368+102)) - 682/(485 + 682)
+
+# LPM beta3: Pr(y = 1 | x1=1 & x2 = 1) - beta1 - beta2 - alpha
+(154/(154+73)) - ((123/(123 + 115)) - 682/(485 + 682)) - ((368/(368+102)) - 682/(485 + 682)) - (682/(485 + 682))
+
+
+```
+
+Given `cappun` ( $Y$ ), `weekly` ( $X_1$ ), and `conservative` ( $X_2$ ):
+
+***Logistic Model***
+
+$\alpha = 0.341$
+
+$\beta_1 = -0.274$
+
+$\beta_2 = 0.942$
+
+$\beta_3 = -0.263$
+
+$\text{logit} (p) = 0.341 - 0.274x_1 + 0.942x_2 - 0.263x_1x_2$
+
+***Linear Probability Model***
+
+$\alpha = 0.584$
+
+$\beta_1 = -0.068$
+
+$\beta_2 = 0.199$
+
+$\beta_3 = -0.037$
+
+$\text{Pr(favoring capital punishment)} = 0.584 - 0.068x_1 + 0.199x_2 - 0.037x_1x_2$
+
+## 9.2 Exercise (2 x 2 x 2 with a second set of variables)
+
+`college` ( $Y$ ), `macollege` ( $X_1$ ), and `pacollege` ( $X_2$ )
+
+-   Where `college` = 1 if respondent has completed a bachelor's degree or higher, and `college` = 0 otherwise
+-   `macollege` = 1 if respondent's mother has completed a bachelor's degree or higher, and `macollege` = 0 otherwise
+-   `pacollege` = 1 if respondent's father has completed a bachelor's degree or higher, and `pacollege` = 0 otherwise
+
+```{r}
+d2 <- gss18 |> 
+  select(degree, madeg, padeg) |> 
+  haven::zap_missing() |> 
+  haven::zap_labels() |> 
+  mutate(
+    college = if_else(degree >= 3, 1L, 0L),
+    macollege = if_else(madeg >= 3, 1L, 0L),
+    pacollege = if_else(padeg >= 3, 1L, 0L)
+    ) |> 
+  drop_na() |> 
+  select(college, macollege, pacollege) 
+
+crosstab3 <- table(cp = d2$college, macollege = d2$macollege, pacollege = d2$pacollege)
+
+as_tibble(crosstab3) |> 
+  mutate(cp = if_else(cp == "1", "BA +", "< BA")) |> 
+  pivot_wider(names_from = cp, values_from = n)
+
+# logistic alpha: x1 = 0 and x2 = 0
+log(303/880)
+
+# logistic beta1: x1 = 1 and x2 = 0
+log(63/53) - log(303/880)
+
+# logistic beta2: x1 = 0 and x2 = 1
+log(83/69) - log(303/880)
+
+# logistic beta3: x1 = 1 and x2 = 1
+log(141/54) - (log(63/53) - log(303/880)) - (log(83/69) - log(303/880)) - log(303/880)
+
+# verify
+glm(formula = college ~ macollege + pacollege + macollege*pacollege, family = "binomial", data = d2)
+
+# LPM alpha: Pr(y = 1 | x1=0 & x2 = 0)
+303/1183
+
+# LPM beta1: Pr(y = 1 | x1=1 & x2 = 0) - alpha
+(63/116) - (303/1183)
+
+# LPM beta2: Pr(y = 1 | x1=0 & x2 = 1) - alpha
+(83/152) - (303/1183)
+
+# LPM beta3: Pr(y = 1 | x1=1 & x2 = 1) - beta1 - beta2 - alpha
+(141/195) - ((63/116) - (303/1183)) - ((83/152) - (303/1183)) - (303/1183)
+```
+
+***Logistic Model***
+
+$\alpha = -1.066$
+
+$\beta_1 = 1.239$
+
+$\beta_2 = 1.251$
+
+$\beta_3 = -0.464$
+
+$\text{logit} (p) = -1.066 + 1.239x_1 + 1.251x_2 - 0.464x_1x_2$
+
+***Linear Probability Model***
+
+$\alpha = 0.256$
+
+$\beta_1 =  0.287$
+
+$\beta_2 = 0.290$
+
+$\beta_3 = -0.110$
+
+$\text{Pr(completing bachelor's degree)} = 0.256 + 0.287x_1 + 0.290x_2 - 0.110x_1x_2$
+
+## 9.3 Exercise (2 x 2 x 2 with a third set of variables)
+
+`edspend` ( $Y$ ), `weekly` ( $X_1$ ), and `conservative` ( $X_2$ )
+
+Where `edspend` = 1 if respondent thinks we spend "too little" on education, and `edspend` = 0 if respondent thinks we spend "about right" or "too much" on education (based on `nateduc`)
+
+```{r}
+d3 <- gss18 |> 
+ select(nateduc, attend, polviews) |> 
+  haven::zap_missing() |> 
+  haven::zap_labels() |> 
+  mutate(
+    edspend = if_else(nateduc == 1, 1L, 0L),
+    weekly = if_else(attend >= 7, 1L, 0L),
+    conservative = if_else(polviews >= 5, 1L, 0L),
+    ) |> 
+  drop_na() |> 
+  select(edspend, weekly, conservative) 
+
+crosstab4 <- table(cp = d3$edspend, weekly = d3$weekly, conservative = d3$conservative)
+
+as_tibble(crosstab4) |> 
+  mutate(cp = if_else(cp == "1", "Too Little (Pro Spending)", "Too Much/About Right")) |> 
+  pivot_wider(names_from = cp, values_from = n)
+
+# logistic alpha: x1 = 0 and x2 = 0
+log(492/129)
+
+# logistic beta1: x1 = 1 and x2 = 0
+log(103/21) - log(492/129)
+
+# logistic beta2: x1 = 0 and x2 = 1
+log(179/72) - log(492/129)
+
+# logistic beta3: x1 = 1 and x2 = 1
+log(76/50) - (log(103/21) - log(492/129)) - (log(179/72) - log(492/129)) - log(492/129)
+
+# verify
+glm(formula = edspend ~ weekly + conservative + weekly*conservative, family = "binomial", data = d3)
+
+# LPM alpha: Pr(y = 1 | x1=0 & x2 = 0)
+492/621
+
+# LPM beta1: Pr(y = 1 | x1=1 & x2 = 0) - alpha
+(103/124) - (492/621)
+
+# LPM beta2: Pr(y = 1 | x1=0 & x2 = 1) - alpha
+(179/251) - (492/621)
+
+# LPM beta3: Pr(y = 1 | x1=1 & x2 = 1) - beta1 - beta2 - alpha
+(76/126) - ((103/124) - (492/621)) - ((179/251) - (492/621)) - (492/621)
+```
+
+***Logistic Model***
+
+$\alpha = 1.339$
+
+$\beta_1 = 0.252$
+
+$\beta_2 = -0.428$
+
+$\beta_3 = -0.744$
+
+$\text{logit} (p) = 1.339 + 0.252x_1 - 0.428x_2 - 0.744x_1x_2$
+
+***Linear Probability Model***
+
+$\alpha = 0.792$
+
+$\beta_1 = 0.038$
+
+$\beta_2 = -0.079$
+
+$\beta_3 = -0.148$
+
+$\text{Pr(agreeing too little spent on education)} = 0.792 + 0.038x_1 - 0.079x_2 - 0.148x_1x_2$
