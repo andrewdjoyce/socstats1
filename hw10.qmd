@@ -1,0 +1,282 @@
+---
+title: "Week 10 Homework"
+author: "Andrew Joyce"
+date: "11-04-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+toc: true
+bibliography: references.bib
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(tidyverse)
+library(infer)
+library(janitor) ## for convenient "table" functions
+library(gssr)    ## for access to GSS data
+
+theme_set(theme_light(base_family = "Baskerville")) 
+```
+
+## 10.1 Setup
+
+```{r}
+library(tidyverse)
+theme_set(theme_light(base_family = "Baskerville"))
+
+library(modelsummary)
+library(broom)
+library(gt)
+
+library(gssr)
+gss18 <- gss_get_yr(2018) 
+
+d <- gss18 |> 
+  select(attend, polviews, cappun, degree) |> 
+  haven::zap_missing() |> 
+  mutate(across(!degree, haven::zap_labels)) |> 
+  mutate(degree = haven::as_factor(degree)) |> 
+  mutate(
+    weekly = if_else(attend >= 7, 1L, 0L),
+    polviews = polviews - 4,
+    cappun = if_else(cappun == 1, 1L, 0L),
+    ) |> 
+  mutate(conservative = as.integer(polviews > 0)) |> 
+  drop_na() 
+
+d
+```
+
+## 10.3.1 Exercise
+
+**Model 1:** `cappun ~ polviews + weekly + polviews:weekly`
+
+```{r}
+m1 <- model.matrix(cappun ~ polviews + weekly + polviews:weekly, data = d)
+head(m1)
+dim(m1)
+```
+
+$\text{logit}(\theta_i) = \alpha + \beta_1 \times \texttt{polviews}_i + \beta_2 \times \texttt{weekly}_i + \beta_3 \times \texttt{polviews:weekly}_i$
+
+This creates a model with 4 parameters: $\alpha$ (interecept), $\beta_{1}$ (for polviews), $\beta_{2}$ (for weekly), and $\beta_{3}$ (for an interaction between polviews and weekly). Since `weekly` is a binary variable, the interaction term only exists if `weekly == 1` & if `polviews != 0`. For example, in the first three rows of the model matrix, the value for `polviews:weekly` is zero since the value for `weekly` is zero. But in the fourth row, when `weekly == 1`, the value for `polviews:weekly` is nonzero.
+
+**Model 2:** `cappun ~ polviews * weekly`
+
+```{r}
+m2 <- model.matrix(cappun ~ polviews * weekly, data = d)
+head(m2)
+dim(m2)
+```
+
+$\text{logit}(\theta_i) = \alpha + \beta_1 \times \texttt{polviews}_i + \beta_2 \times \texttt{weekly}_i + \beta_3 \times \texttt{polviews:weekly}_i$
+
+Based on the code, the gut guess would be that this model creates a model with two parameters: $\alpha$ (intercept) and $\beta_1$ for the interaction of `polviews` and `weekly`. But in order to have an interaction, you need separate betas for each variable individually. Hence, model 2 is identical to model 1.
+
+**Model 3:** `cappun ~ degree`
+
+```{r}
+m3 <- model.matrix(cappun ~ degree, data = d)
+head(m3)
+dim(m3)
+```
+
+$\text{logit}(\theta_i) = \alpha + \beta_1 \times \texttt{high school}_i + \beta_2 \times \texttt{associate/jr college}_i + \beta_3 \times \texttt{bachelors}_i + \beta_4 \times \texttt{graduate}_i$
+
+The factor variable `degree`appears to create a series of binary indicators for each category within the variable. The intercept is created, and then each category (high school, associate/jr college, bachelor's, and graduate) has a binary indicator. I suspect this is helpful if you assume the difference between a high school and associate's degree is *not* identical to the difference between a bachelor's degree & graduate degree, or the difference between associate's & degrees.
+
+## 10.3.2 Exercise
+
+```{r}
+mod1 <- glm(cappun ~ conservative + weekly, data = d, family = "binomial")
+mod2 <- glm(cappun ~ conservative * weekly, data = d, family = "binomial")
+mod3 <- glm(cappun ~ polviews + weekly, data = d, family = "binomial")
+mod4 <- glm(cappun ~ polviews * weekly, data = d, family = "binomial")
+
+msummary(list(mod1, mod2, mod3, mod4),  output = "gt",
+         title = "Logistic Regressions Predicting Support for Capital Punishment",
+         notes = list(gt::md('*GSS 2018*')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+***Compare the models using AIC & BIC.***
+
+-   The model with lowest AIC is Model 4, which suggests it is better fir than the other models.
+
+-   The model with the lowest BIC is Model 3, which suggests it is better fir than the other models.
+
+Models 1 & 2 have very similar values for both AIC and BIC. Models 3 & 4 also have very similar values for both AIC and BIC. However, Models 1 & 2 have substantially higher AIC/BIC values than Models 3 & 4.
+
+***Interpret the intercept in all models.***
+
+-   For model 1, the log-odds of supporting capital punishment when `conservative == 0` and `weekly == 0` (I.e, when someone is not conservative & when they do not attend weekly) are 0.358
+
+-   For model 2, the log-odds of supporting capital punishment when `conservative == 0` and `weekly == 0` (I.e, when someone is not conservative & when they do not attend weekly) are 0.341
+
+-   For model 3, the log-odds of supporting capital punishment when `polviews == 0` and `weekly == 0` (I.e., someone who is moderate & does not attend weekly) are 0.666
+
+-   For model 4, the log-odds of supporting capital punishment when `polviews == 0` and `weekly == 0` (ie., someone who is moderate & does not attend weekly) are 0.677
+
+Models 2 and 4 introduce an interaction, which can affect the log-odds if there is a reinforcing or redundancy effect in the interaction of political views and religious service attendance.
+
+The log-odds are probably higher in Models 3 & 4 than the log-odds of Models 1 & 2 due to the coding decisions behind `conservative` and `polviews`. `Conservative` is a binary variable comparing those who are slightly conservative, conservative, or extremely conservative with those who are not. `Polviews` is a continuous variable that ranges from -3 (extremely liberal) to 3 (extremely conservative), with 0 being those who are "moderate".
+
+***Looking at*** `mod4` ***, what is the predicted probability that a "slightly conservative" individual that attends religious ceremonies weekly favors capital punishment?***
+
+$\text{logit}(\theta_i) = \alpha + \beta_1 \times \texttt{polviews}_i + \beta_2 \times \texttt{weekly}_i + \beta_3 \times \texttt{polviews:weekly}_i$
+
+$\alpha$: 0.677
+
+$\beta_1$: 0.441
+
+$\beta_2$: -0.451
+
+$\beta_3$: -0.138
+
+"Slightly conservative" means that `polviews == 1`
+
+"Attends religious ceremonies weekly" means that `weekly == 1`
+
+```{r}
+plogis(0.677 + 0.441*1 - 0.451*1 - 0.138)
+```
+
+The predicted probability that a slightly conservative individual that attends religious ceremonies weekly favors capital punishment is **62.9%**.
+
+## 10.3.3 Exercise
+
+```{r}
+d <- d |> 
+  mutate(polviews2 = case_when(polviews < 0 ~ "Liberal",
+                               polviews == 0 ~ "Moderate",
+                               polviews > 0 ~ "Conservative")) |> 
+  mutate(polviews2 = haven::as_factor(polviews2))
+
+d$polviews2 <-relevel(d$polviews2, ref = "Conservative")
+ex3mod1 <- glm(cappun ~ polviews2 + weekly, data = d, family = "binomial")
+
+d$polviews2 <-relevel(d$polviews2, ref = "Liberal")
+ex3mod2 <- glm(cappun ~ polviews2 + weekly, data = d, family = "binomial")
+
+d$polviews2 <-relevel(d$polviews2, ref = "Moderate")
+ex3mod3 <- glm(cappun ~ polviews2 + weekly, data = d, family = "binomial")
+
+msummary(list(ex3mod1, ex3mod2, ex3mod3), gof_map = "none", output = "gt") |> 
+  opt_table_font(font = "Baskerville") 
+
+```
+
+In model 1, conservatives are the reference. The $\beta$ for moderates (`polviews2Moderate`) is -0.468. This means that compared to conservatives, moderates have 0.468 lower logged odds of supporting capital punishment. The $\beta$ for liberals (`polviews2Liberal`) is -1.362. This means that compared to conservative, liberals have 1.362 lower logged odds of supporting capital punishment.
+
+In model 2, liberals are the reference. The $\beta$ for moderates (`polviews2Moderate`) is 0.894. This means that compared to liberals, moderates have 0.894 higher logged odds of supporting capital punishment. The $\beta$ for conservatives (`polviews2Conservative`) is 1.362. This means that compared to liberals, conservatives have 1.362 greater logged odds of supporting capital punishment.
+
+In model 3, moderates are the reference. The $\beta$ for liberals (`polviews2Liberal`) is -0.894. This means that compared to moderates, liberals have -0.894 lower logged odds of supporting capital punishment. The $\beta$ for conservatives (`polviews2Conservative`) is 0.468. This means that compared to moderates, conservatives have 0.468 higher logged odds of supporting capital punishment.
+
+For all models, the $\beta$ for weekly attendance is -0.417. This means that compared to those who do not attend religious services weekly, those that *do* attend religious services weekly have 0.417 lower logged odds of supporting capital punishment.
+
+The intercepts vary between models, since the intercept is the logged odds of supporting capital punishment for those who are not weekly attenders and those who are in the reference category of `polviews2`. So for model 1, the intercept refers to non-weekly attenders who are conservative. In model 2, the intercept describes non-weekly attenders who are liberals. In model 3, the intercept describes non-weekly attenders who are moderates.
+
+## 10.3.4 Exercise
+
+Fill in the conditional probabilities in the following table
+
+Probability that a respondent favors capital punishment ($\texttt{cappun} = 1$)
+
+|          |              |                 |                  |
+|:---------|:-------------|:----------------|:-----------------|
+| `weekly` | `polviews2`  | Saturated Model | Restricted Model |
+| 0        | liberal      | 45.98%          | 46.89%           |
+| 0        | moderate     | 68.52%          | 68.35%           |
+| 0        | conservative | 78.30%          | 77.52%           |
+| 1        | liberal      | 41.94%          | 36.78%           |
+| 1        | moderate     | 57.93%          | 58.72%           |
+| 1        | conservative | 67.84%          | 69.44%           |
+
+```{r}
+d$polviews2 <-relevel(d$polviews2, ref = "Liberal")
+d |> 
+  group_by(weekly, polviews2) |> 
+  summarize(p = mean(cappun)) 
+```
+
+```{r}
+glm(cappun ~ polviews2 + weekly, data = d, family = "binomial")
+
+#using plogis and plugging in alpha and betas
+
+# 0 weekly, liberal
+plogis(-0.1244 )
+# 0 weekly, moderate
+plogis(-0.1244 + 0.8942)
+# 0 weekly, conservative
+plogis(-0.1244 + 1.3625)
+
+# 1 weekly, liberal
+plogis(-0.1244 - 0.4172)
+# 1 weekly, moderate
+plogis(-0.1244 + 0.8942 - 0.4172)
+# 1 weekly, conservative
+plogis(-0.1244 + 1.3625 - 0.4172)
+
+```
+
+```{r}
+# isn't there a way to predict this?
+ex4model <- glm(cappun ~ polviews2 + weekly, data = d, family = "binomial")
+
+d2 <- with(d, data.frame(weekly = c(0, 0, 0, 1, 1, 1), 
+                         polviews2 = c("Liberal", "Moderate", "Conservative", "Liberal", "Moderate", "Conservative"))
+           )
+
+d2$cappun_prob <- predict(ex4model, newdata = d2, type = "response")
+(d2)
+```
+
+## 10.3.5 Exercise
+
+I'm curious if weekly religious service attendance is more common among married individuals, individuals with children, and those with college degrees. (See @schleifer2017 for some interesting panel analyses about this.) I will make number of children into a binary variable (with children vs without children).
+
+```{r}
+d3 <- gss18 |> 
+  select(attend, childs, marital, degree) |> 
+  haven::zap_missing() |> 
+  mutate(
+    weekly = if_else(attend >= 7, 1L, 0L),
+    parent = if_else(childs > 0, 1L, 0L),
+    married = if_else(marital == 1, 1L, 0L),
+    college = if_else(degree >= 3, 1L, 0L)
+    ) |> 
+  drop_na() 
+
+ex5mod1 <- glm(weekly ~ childs + marital + degree, data = d3, family = "binomial")
+ex5mod2 <- glm(weekly ~ childs + marital, data = d3, family = "binomial")
+
+msummary(list(ex5mod1, ex5mod2),  output = "gt",
+         title = "Logistic Regressions Predicting Weekly Religious Service Attendance",
+         notes = list(gt::md('*GSS 2018*')) ) |> 
+  opt_table_font(font = "Baskerville") 
+
+library(lmtest)
+lrtest(ex5mod1, ex5mod2)
+
+
+```
+
+*Compare AIC/BIC.*
+
+AIC (out of sample deviance): Model 1 is superior for out-of-sample predictive accuracy.
+
+BIC: Model 2 is superior, but only just.
+
+Results of the likelihood-ratio test are significant (p \< 0.05, $\chi^2$ = 6.4377) which suggests that the more complex model (including college degree) fits the better data.
+
+*Describe associations.*
+
+Being a parent is positively associated with weekly church attendance. However, being married is negatively asosciated with weekly church attendance. A college degree is positively associated with church attendance (take that, secularization theory. Actually @uecker2007 suggests that attendance is higher for college attendees.)
