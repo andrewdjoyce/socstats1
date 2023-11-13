@@ -1,0 +1,208 @@
+---
+title: "Week 11 Homework"
+author: "Andrew Joyce"
+date: "11-13-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+toc: true
+bibliography: references.bib
+---
+
+## 11.1 Setup
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(infer)
+library(janitor) 
+```
+
+```{r}
+library(tidyverse)
+theme_set(theme_light(base_family = "Baskerville"))
+
+library(modelsummary)
+library(broom)
+library(gt)
+library(performance)
+library(gridExtra)
+
+library(gssr)
+gss18 <- gss_get_yr(2018) 
+
+vars <- c(
+  "hompop", "sibs", "numwomen", "nummen", "age", "sex", "race", "attend", "polviews", "degree", 
+  "happy", "sexornt", "premarsx", "condom", "wrkslf", "fefam", "cappun", "padeg", "madeg"
+)
+
+d <- gss18 |> 
+  select(all_of(vars)) |> 
+  haven::zap_missing() |> 
+  ## continuous vars 
+  mutate(across(all_of(vars[1:5]), haven::zap_labels)) |> 
+  ## categorical vars
+  mutate(across(!all_of(vars[1:5]), haven::as_factor)) |>
+  mutate(numtot = numwomen + nummen)
+```
+
+## 11.1.1 Exercise
+
+```{r}
+m1 <- glm(cappun ~ attend + polviews + degree, family = "binomial", data = d)
+tidy(m1)
+performance_hosmer(m1, n_bins = 10)
+
+```
+
+Larger p-values are an indication of better fit in the Hosmer-Lemeshow GOF test because this test compares the model against the data. If the p-value is small (and significant), that means the model is different enough from the data to distinguish it as substantively different. But, since the p-value from the test is large, we know that the differences between the model and the data are not big enough to concern us. Thus, the model is a good approximation or map of the reality of the data.
+
+## 11.1.2 Exercise
+
+Link test! In order to get the command `predict()` to create a new column in the dataset, our n must be the same, so I'm going to select only the variables of interest and create a new dataframe.
+
+```{r}
+d2 <- d |> select(cappun, attend, polviews, degree) |> drop_na()
+
+d2$m1_pred_log_odds <- predict(m1) 
+
+lt0 <- glm(cappun ~ m1_pred_log_odds, 
+           data = d2,
+           family = binomial)
+tidy(lt0) # beta for m1_pred_log_odds is 1, as expected
+
+lt1 <- glm(cappun ~ m1_pred_log_odds + I(m1_pred_log_odds^2),
+           data = d2,
+           family = binomial)
+
+tidy(lt1)
+```
+
+In this model, $\beta_{1}$ = 1.0489, and $\beta_2$ = 0.0679. The beta coefficient for the squared term $\beta_2$ does not have a significant p-value (p = .438). Since squaring the term did not add additional Information, we know that the model is likely well-specified. This doesn't tell us if we omitted variables, but it does suggest that among the variables we picked, the model is well-specified and we aren't forgetting interactions or other specifications.
+
+## 11.2.1 Exercise
+
+I created two graphs: one showing the distribution for each value of $\lambda$ separately (where $\lambda$ = 1, 2, 3, etc.) and then a second graph where they are overlaid.
+
+```{r}
+
+lambda_values <- c(1, 2, 3, 4, 5)
+poisson_data <- lapply(lambda_values, function(lambda) rpois(1000, lambda))
+poisson_df <- bind_rows(Map(data.frame, lambda = lambda_values, draws = poisson_data))
+
+ggplot(poisson_df, aes(x = draws, fill = factor(lambda))) +
+  geom_bar(position = "identity", alpha = 0.7, width = .75) +
+  labs(title = "Poisson Distribution",
+       x = "Values",
+       y = "Frequency",
+       fill = "Lambda") +
+  facet_wrap(~ lambda, scales = "fixed") +
+  theme_minimal(base_family = "Baskerville")
+
+ggplot(poisson_df, aes(x = draws, fill = factor(lambda))) +
+  geom_bar(position = "identity", alpha = 0.7, width = .75) +
+  labs(title = "Poisson Distribution",
+       x = "Values",
+       y = "Frequency",
+       fill = "Lambda") +
+  theme_minimal(base_family = "Baskerville")
+
+
+```
+
+As $\lambda$ increases, it appears the distribution is slowly approaching the normal distribution. It's not truly the normal distribution (in a poisson distribution, variance = mean, that's not true in a normal distribution. Plus Poisson is bounded by 0 and positive infinity, and only takes on discrete values). But it's starting to look like the normal distribution.
+
+## 11.2.2 Exercise
+
+I am collapsing "degree" and "weekly" into binary variables for ease of interpretation.
+
+```{r}
+d_numtot <- d |> 
+  select(numtot, attend, sex, degree) |> 
+  drop_na() |> 
+  mutate(
+    weekly = if_else(attend %in% c("every week", "several times a week"), "weekly or more", "less than weekly") |> 
+  factor(levels = c("less than weekly", "weekly or more")) ) |> 
+  mutate(bachelors = if_else(degree %in% c("bachelor's", "graduate"), "bachelor's or higher", "less than a bachelor's") |> 
+     factor(levels = c("less than a bachelor's", "bachelor's or higher"))      )
+        
+## an aside here. are high numbers on this distribution going to affect the model? 991 means "some, 1+" per GSS website. that's the only 'numtot' above 50 that has more than 4 respondents. interesting.
+tabyl(d_numtot$numtot)
+
+# models and summary
+mod1 <- glm(numtot ~ weekly + bachelors, data = d_numtot, family = poisson)
+mod2 <- glm(numtot ~ weekly + bachelors + sex, data = d_numtot, family = poisson)
+mod3 <- glm(numtot ~ weekly + bachelors*sex, data = d_numtot, family = poisson)
+  
+msummary(list(mod1, mod2, mod3),  output = "gt",
+         title = "Poisson Regressions Predicting Total Number of Sexual Partners",
+         stars = TRUE, 
+         notes = list(gt::md('*GSS 2018*')) ) |> 
+  opt_table_font(font = "Baskerville") 
+
+```
+
+Here, the most complex model (including three variables: weekly, bachelor's, sex and an Interaction with bachelor's and sex) is best fit. Compared to the other models, model 3 has the lowest AIC and BIC.
+
+***Coefficient interpretation***
+
+In model 3, the coefficient for those with a bachelor's degree ( $\beta_{college}$ ) is -0.171. This can be a bit tricky to interpret. A bare-bones interpretation would be "compared to those without a bachelor's degree, those with a bachelor's degree are predicted to have 0.171 lower log-counts of sexual partners." What is a log-count? No one knows. So that's not a helpful interpretation.
+
+We can transform this into predicted counts. $\exp (\alpha + \beta)$ obtains the predicted count. So, `exp(3.673 - 0.171)` = 33.182. This means that for those who have a college degree, their predicted number of sexual partners is 33.182. (If we just exponentiate the intercept, we can find the predicted number of children for those who do not attend weekly- `exp(3.673)` = 39.370). (This is ignoring the effect of sex and weekly attendance).
+
+We can exponentiate the beta to get an incidence-rate ratio. Since the beta is negative, I can subtract 1 from the exponentiated value to get a % reduction. `(exp(-0.171)) -1` = -0.157. This means that having completed a bachelor's degree is associated with a 15.7% reduction in the predicted number of sexual partners. This makes sense, as `33.182/39.370 - 1` = -0.157.
+
+## 11.2.3 Exercise
+
+```{r}
+
+# recoding into binary variables for ease of interpretation
+d_numsibs <- d |> 
+  select(sibs, polviews, attend, madeg) |> 
+  drop_na() |> 
+  mutate(weekly = if_else(attend %in% c("every week", "several times a week"), "weekly or more", "less than weekly") |> 
+        factor(levels = c("less than weekly", "weekly or more")) ) |> 
+  mutate(mabachelors = if_else(madeg %in% c("bachelor's", "graduate"), "bachelor's or higher", "less than a bachelor's") |> 
+        factor(levels = c("less than a bachelor's", "bachelor's or higher"))      ) |> 
+  mutate(conservative = if_else(polviews %in% c("slightly conservative", "conservative", "extremely conservative"), "conservative", "liberal or moderate") |> 
+        factor(levels = c("liberal or moderate", "conservative")))
+
+# models and table
+mod4 <- glm(sibs ~ weekly + mabachelors, data = d_numsibs, family = poisson)
+mod5 <- glm(sibs ~ weekly + mabachelors + conservative, data = d_numsibs, family = poisson)
+mod6 <- glm(sibs ~ weekly*conservative + mabachelors, data = d_numsibs, family = poisson)
+  
+msummary(list(mod4, mod5, mod6),  output = "gt",
+         title = "Poisson Regressions Predicting Total Number of Sibglings",
+         stars = TRUE,
+         notes = list(gt::md('*GSS 2018*')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+Here, the simplest model (Model 1, which only includes information on attendance and mother's degree) is the best fit model that predicts of number of siblings. Including an additional term with political ideology actually worsens model fit, though slightly. We can conduct a likelihood ratio test to further explore this possibility.
+
+```{r}
+library(lmtest)
+lrtest(mod4, mod5)
+```
+
+Because the Chi-square value is not significant, including an additional predictor (conservative) does not improve model fit. The simpler model is preferred. Perhaps this is an issue with coding; I collapsed a variable with 7 categories (extremely liberal, liberal, slightly liberal, moderate, slightly conservative, conservative, extremely conservative) into a binary indicator of conservative. A model with the original, 7-category variable is better fit than the binary variable.
+
+```{r}
+mod7 <- glm(sibs ~ weekly + mabachelors + polviews, data = d_numsibs, family = poisson)
+tidy(mod7)
+lrtest(mod5, mod7)
+```
+
+***Coefficient Interpretation***
+
+In model 1, the coefficient for those who attend religious services weekly or more ( $\beta_{weekly}$ ) is 0.148. Again, this can be a bit tricky to interpret. A bare-bones interpretation would be "compared to those who attend religious services at lower rates, those who attend religious services weekly or more have an increase in 0.148 log-counts of number of siblings." Clunky, right?
+
+Let's transform the beta into a predicted count. $\exp (\alpha + \beta)$ obtains the predicted count. So, exp(0.148 + 1.255) = 4.067. This means that for those who attend religious services weekly, their predicted number of siblings is 4.067. (If we just exponentiate the intercept, we can find the predicted number of children for those who do not attend weekly- exp(1.255) = 3.507). This is ignoring the effect of college education here.
+
+We can exponentiate the beta to get an incidence-rate ratio. Since the beta is positive, I can subtract 1 to get an incident rate ratio. `(exp(0.148)) - 1` = 15.95%. This means that attending religious services weekly is associated with a 15.95% increase in number of siblings. And this makes sense, since `4.067/3.507` = 1.159, or 15.95% greater.
