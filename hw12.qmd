@@ -1,0 +1,300 @@
+---
+title: "Week 12 Homework"
+author: "Andrew Joyce"
+date: "11-26-2023"
+format: html
+editor: visual
+mainfont: "Baskerville"
+embed-resources: true
+toc: true
+bibliography: references.bib
+---
+
+```{r}
+#| echo: false
+#| results: hide
+#| include: false
+
+library(conflicted)
+conflicts_prefer(dplyr::filter)
+library(infer)
+library(janitor) 
+library(tidyverse)
+library(latex2exp)
+theme_set(theme_light(base_family = "Baskerville"))
+```
+
+## 12.1.4 Exercise
+
+$f(x) = (x - \mu)^2$
+
+```{r}
+ggplot() + 
+  xlim(-5, 5) + 
+  geom_function(fun = \(x) (x-0)^2) + 
+  labs(x = "x", y = "f(x)", title = latex2exp::TeX(r"($f(x) = (x - \mu)^2,  \mu = 0)"))
+```
+
+$f(x) = -(x - \mu)^2$
+
+```{r}
+ggplot() +
+  xlim(-5, 5) + 
+  geom_function(fun = \(x) -(x-0)^2) + 
+  labs(x = "x", y = "f(x)", title = latex2exp::TeX(r"($f(x) = -(x - \mu)^2,  \mu = 0)") )
+```
+
+$f(x) = e^{-(x - \mu)^2}$
+
+```{r}
+ggplot() +
+  xlim(-5, 5) + 
+  geom_function(fun = \(x) exp(-(x-0)^2)) + 
+  labs(x = "x", y = "f(x)", title = latex2exp::TeX(r"($f(x) = e^{-(x - \mu)^2},  \mu = 0)") )
+```
+
+## 12.1.5 Exercise
+
+```{r}
+# square root of pi is the same as the sum of the area underneath the curve in the third equation in 12.1.4
+sqrt(pi)
+
+# area under function is = 1
+integrate(f = \(x) 1/sqrt(pi) * exp(-(x)^2), lower = -Inf, upper = Inf)
+```
+
+## 12.1.7 Exercise 
+
+```{r}
+library(modelsummary)
+library(gt)
+library(gssr)
+
+gss18 <- gss_get_yr(2018) 
+d1 <- gss18 |> 
+  select(sex, age, height) |> 
+  mutate(male = if_else(sex == 1, 1L, 0L)) |> 
+  drop_na()
+
+m1 <- glm(height ~ male, data = d1, family = gaussian(link="identity"))
+m2 <- glm(height ~ male + age, data = d1, family = gaussian(link="identity"))
+
+msummary(list(m1, m2),  output = "gt",
+         title = "OLS Regressions Predicting Weight",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+In Model 1, $\alpha = 64.410$. This is the predicted height when `male == 0`; that is, this is the predicted height for women in the sample. On average, women are 64.410 inches tall- or about about 5' 4" tall. In this model, $\beta = 5.705$. This means that being male increases the predicted height of the respondent by 5.705 inches.
+
+In Model 2, $\alpha = 64.469$. This is the predicted height when `male == 0` *and* when `age == 0`. It is important to note that the GSS samples adults over the age of 18, there are no observations in the data where `age < 18`, much less where `age == 0`. Interpreting the intercept must be done with extreme caution. However, $\beta_1 = 5.706$. This means that being male increases the predicted height by 5.706 inches. Furthermore, $\beta_2 = -0.001$. This means that for each additional year of age, the predicted height decreases by 0.001 inches.
+
+## 12.1.8 Exercise 
+
+```{r}
+d2 <- gss18 |> 
+  select(coninc, age) |> 
+  drop_na() |> 
+  mutate(age2 = age^2)
+  
+m3 <- glm(coninc ~ age + age2, data = d2, family = gaussian(link="identity"))
+
+msummary(list(m3),  output = "gt",
+         title = "OLS Regression Predicting Inflation-Adjusted Family Income",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+In this model, $\alpha = -15627.326$. This means that when `age == 0`, the predicted inflation-adjusted family income is -\$15,627.33 . This is nonsensical for two reasons: one, the data have no observations where `age == 0`, as age ranges from 18 to 85 in the GSS. Two, family income cannot be negative (unless you're including debt, maybe- but that is not how this variable is constructed).
+
+Below, we can see the curvilinear effect of age on inflation-adjusted family income:
+
+```{r}
+grid <- tibble(age = 18:85, age2 = age^2, pred_coninc = 0)
+grid$pred_coninc <- predict(m3, newdata = grid)
+
+ggplot() + 
+  geom_line(aes(x=age, y=pred_coninc), color = "blue", data = grid) +
+  labs(x = "Age", y = "Predicted Inflation-Adjusted Family Income", title = "Predicted Inflation-Adjusted Family Income by Age", caption = "GSS 2018")
+
+```
+
+## 12.1.9 Exercise
+
+```{r}
+d2 <- d2 |> 
+  mutate(age_centered = age - mean(age, na.rm = TRUE)) |> 
+  mutate(age_centered_2 = age_centered^2)
+
+m4 <- glm(coninc ~ age_centered + age_centered_2, data = d2, family = gaussian(link="identity"))
+
+msummary(list(m3, m4),  output = "gt",
+         title = "OLS Regressions Predicting Inflation-Adjusted Family Income Comparing Age and Mean-Centered Age Variables",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+The values for $\beta_1$ (age vs. age-centered) and $\beta_0$ have changed. However, $\beta_2$ (age-centered-squared) has both the same coefficient and standard error as the age-squared beta in the first model. Also, all model statistics are the same (R2, AIC, BIC, etc.). Furthermore, the pattern of effects is the same: age has a positive relationship with predicted income, but age-squared has a negative relationship with predicted income.
+
+$\beta_0$ is the intercept: the value at which both `age_centered` and `age_centered (squared)==0`. Since this age variable is mean-centered, an age of 0 means the *mean* age in the sample- 48.8 years old. So the intercept is the predicted income when `age-centered == 0` (or when `age = 48.8`). That explains why $\beta_0$ is positive in the age-centered model: it's the predicted family income at the average age in the sample.
+
+## 12.1.10 Exercise
+
+```{r}
+d2 <- d2 |> 
+  mutate(age_std = (age - mean(age, na.rm = TRUE)) / sd(age, na.rm = TRUE)) |> 
+  mutate(age_std_2 = age_std^2)
+
+m5 <- glm(coninc ~ age_std + age_std_2, data = d2, family = gaussian(link="identity"))
+
+msummary(list(m3, m4, m5),  output = "gt",
+         title = "OLS Regressions Predicting Inflation-Adjusted Family Income Comparing Regular Age, Mean-Centered Age, and Standardized Age Variables",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+In this new model (`m5` in code, model 3 in this table), we are standardizing the age-centered variable. All the coefficients have changed ($\beta_1$ and $\beta_2$) but the intercept ($\beta_0$) and fit-statistics are the same. In this standardized model, $\beta_0$ represents the predicted income when the standardized, mean-centered age variable equals 0. This is still the mean age in the sample, 48.8, but the variable has been transformed into standard deviation units. It makes sense the intercept is identical to the previous model since they are still based on the same number. However, interpreting the $\beta_1$ and $\beta_2$ coefficients needs to include the clarifying phrase "for each standard deviation increase in age" since that is the unit the variable is in.
+
+## 12.1.11 Exercise
+
+```{r}
+
+d3 <- gss18 |> 
+  select(marital, coninc, sex) |> 
+  mutate(
+    coninc = haven::zap_label(coninc),
+    sex = haven::as_factor(sex),
+    marital = haven::as_factor(marital)
+  ) |> 
+  drop_na() |> 
+  mutate(married = if_else(marital == "married", 1L, 0L)) |> 
+  mutate(male = if_else(sex == "male", 1L, 0L))
+
+d3 |> 
+  group_by(married) |> 
+  summarize(
+    avg_coninc = mean(coninc, na.rm = TRUE), 
+    sd = sd(coninc, na.rm = TRUE),
+    n = n()
+  ) |> 
+  mutate(std_error = sd / n())
+
+m6 <- glm(coninc ~ married, data = d3, family = gaussian(link="identity"))
+
+msummary(list(m6),  output = "gt",
+         title = "OLS Regressions Predicting Inflation-Adjusted Family Income by Marital Status",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+Compared to the previous `dplyr` table, the results are the same. The predicted value for unmarried individuals (or the intercept, $\beta_0$, is 36817.68. Married individuals have a predicted increase of 30674.24, for a total of 67,491.92 (per `dplyr` table).
+
+To calculate the standard error for a comparison of means:
+
+```{r}
+sqrt( (34642.61^2/1229) + (45378.47^2/923) )
+```
+
+In the regression output, the standard error of the coefficient estimate for `married` is 1725.002. The two values are somewhat similar, though they are more different than I anticipated.
+
+## 12.1.12 Exercise
+
+```{r}
+d3 |> 
+  group_by(male, married) |> 
+  summarize(coninc = mean(coninc, na.rm = TRUE))
+
+m7 <- glm(coninc ~ male*married, data = d3, family = gaussian(link="identity"))
+
+msummary(list(m7),  output = "gt",
+         title = "OLS Regressions Predicting Inflation-Adjusted Family Income by Marital Status and Gender",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+| male | married | coninc   | regression output                       | coefficients from table                      | sum       |
+|------|---------|----------|-----------------------------------------|----------------------------------------------|-----------|
+| 0    | 0       | 33560.78 | $\beta_0$                               | 33560.775                                    | 33560.775 |
+| 0    | 1       | 66759.76 | $\beta_0 + \beta_2$                     | 33560.775 + 33198.981                        | 66759.76  |
+| 1    | 0       | 41014.66 | $\beta_0 + \beta_1$                     | 33560.775 + 7453.880                         | 41014.65  |
+| 1    | 1       | 68292.14 | $\beta_0 + \beta_1 + \beta_2 + \beta_3$ | 33560.775 + 7453.880 + 33198.981 - 5921.494  | 68292.14  |
+
+## 12.1.13 Exercise
+
+```{r}
+data(bikes, package = "bayesrules")
+```
+
+```{r}
+
+d4 <- bikes |> 
+  mutate(windspeed_ctr = windspeed - mean(windspeed, na.rm=TRUE)) |> 
+  mutate(temp_feel_ctr = temp_feel - mean(temp_feel, na.rm=TRUE)) |> 
+  select(rides, windspeed_ctr, temp_feel_ctr, weekend)
+
+m8 <- glm(rides ~ windspeed_ctr + temp_feel_ctr + weekend, data=d4, family = gaussian(link="identity"))
+
+msummary(list(m8),  output = "gt",
+         title = "OLS Regression Predicting Bikeshare Rides by Windspeed and Temperature Feel",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+A weekday (`weekend = FALSE`) with average windspeed (`windspeed_ctr = 0`) and average temperature feel (`temp_feel_ctr == 0`) is the intercept $\beta_0$. That is, the predicted number of bike rides on such a day is 3683.442 rideshare bike rides.
+
+On the weekend, we must add the coefficient for `weekend`. On the weekend, predicted rideshares decrease by 713.575, down to 2969.867 rideshares on the weekend (again, assuming wind and temperature are average).
+
+## 12.1.14 Exercise
+
+```{r}
+m9 <- glm(rides ~ windspeed_ctr + temp_feel_ctr + weekend, data=d4, family = poisson(link="log"))
+
+msummary(list(m9),  output = "gt",
+         title = "Poisson Regression Predicting Bikeshare Rides by Windspeed and Temperature Feel",
+         stars = TRUE, 
+         notes = list(gt::md('GSS 2018')) ) |> 
+  opt_table_font(font = "Baskerville") 
+```
+
+On a weekday, if the windspeed and temperature are average, the predicted log-counts of riders is 8.175, equivalent to a ridership of $e^{8.175}$ or 3551.055 riders.
+
+The predicted log-count of riders on a weekend is 7.958, which is better understood as $e^{8.175 - 0.217}$ or $e^7.958$ or 2858.351 riders.
+
+## 12.1.15 Exercise
+
+```{r}
+mod_normal <- glm(rides ~ windspeed + temp_feel + weekend, data = bikes, family = "gaussian")
+bikes$resid <- residuals(mod_normal)
+
+bikes |> 
+  ggplot(aes(date, resid)) + 
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_point(
+    data = filter(bikes, abs(resid) == max(abs(resid))),
+    color = "red", shape = 21, size = 3
+  )
+
+bikes |> 
+  group_by(year, month) |> 
+  summarize(rides = mean(rides, na.rm = TRUE))
+
+bikes |> 
+  ggplot(aes(date, rides)) + geom_line() +
+  scale_x_date(date_breaks = "1 month") +  theme(axis.text.x = element_text(angle=90))
+```
+
+Model fit seems poor, probably for several reasons. One is the seasonality of bike-share riding. There seem to be two periods where there is relatively few data- .July and August 2011, and then July and August of 2012. Hot months where people will be biking less.
+
+```{r}
+filter(bikes, abs(resid) == max(abs(resid)))
+```
+
+This date is October 29th, 2012. This is the day that Hurricane Sandy hit the Washington DC area. Federal offices in DC were closed that day, as well as the Metro & Smithsonian. Both tourist and local traffic are down that day.
